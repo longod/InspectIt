@@ -3,7 +3,7 @@
 local this = {}
 
 ---@class Activate.Params
----@field target tes3alchemy|tes3apparatus|tes3armor|tes3book|tes3clothing|tes3ingredient|tes3light|tes3lockpick|tes3misc|tes3probe|tes3repairTool|tes3weapon?
+---@field target tes3alchemy|tes3apparatus|tes3armor|tes3book|tes3clothing|tes3ingredient|tes3light|tes3lockpick|tes3misc|tes3probe|tes3repairTool|tes3weapon
 
 ---@class Deactivate.Params
 ---@field menuExit boolean

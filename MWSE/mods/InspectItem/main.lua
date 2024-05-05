@@ -149,7 +149,7 @@ local function EnterInspection()
 end
 
 ---@param e keyDownEventData
----@param key KeybindingData
+---@param key mwseKeyCombo
 ---@return boolean
 local function TestInput(e, key)
     if key.keyCode ~= e.keyCode then
@@ -205,7 +205,7 @@ local function OnInitialized()
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
         RightClickMenuExit.registerMenu({
             menuId = "MenuInspection",
-            buttonId = "Close",
+            buttonId = "Return",
         })
     end
     event.register("MenuInspectionClose", function(e)

@@ -5,13 +5,14 @@ this.configPath = "InspectItem"
 ---@class Config
 local defaultConfig = {
     input = {
-        ---@class KeybindingData
+        ---@type mwseKeyCombo
         keybind = {
-            keyCode = tes3.scanCode.c,
+            keyCode = tes3.scanCode.x --[[@as tes3.scanCode]],
             isShiftDown = false,
             isAltDown = false,
             isControlDown = false,
         },
+        -- sensivility
     },
     target = {
         itemTile = true,
