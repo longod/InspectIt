@@ -4,6 +4,7 @@ local this = {}
 
 ---@class Activate.Params
 ---@field target tes3alchemy|tes3apparatus|tes3armor|tes3book|tes3clothing|tes3ingredient|tes3light|tes3lockpick|tes3misc|tes3probe|tes3repairTool|tes3weapon
+---@field offset number
 
 ---@class Deactivate.Params
 ---@field menuExit boolean
@@ -31,6 +32,10 @@ end
 ---@param self IController
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
+end
+
+---@param self IController
+function this.Reset(self)
 end
 
 return this

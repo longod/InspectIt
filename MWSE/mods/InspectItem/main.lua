@@ -1,6 +1,5 @@
 local config = require("InspectItem.config")
 local logger = require("InspectItem.logger")
-local unit2m = 1.0 / 70.0 -- 1units/70meters
 
 local controllers = {
     require("InspectItem.controller.renderer").new(),
@@ -10,96 +9,12 @@ local controllers = {
     require("InspectItem.controller.inspector").new(),
 }
 
----@param scanCode tes3.scanCode
----@return string
-local function getKeybindName(scanCode)
-    return tostring(tes3.findGMST(tes3.gmst.sKeyName_00 + scanCode).value)
-end
-
--- local prefixes = {}
--- if hasShift then table.insert(prefixes, "Shift") end
--- if hasAlt then table.insert(prefixes, "Alt") end
--- if hasCtrl then table.insert(prefixes, "Ctrl") end
--- table.insert(prefixes, comboText)
--- return table.concat(prefixes, " + ")
-
-
-local function traverseRoots(roots)
-    local function iter(nodes)
-        for _, node in ipairs(nodes or roots) do
-            if node then
-                coroutine.yield(node)
-                if node.children then
-                    iter(node.children)
-                end
-            end
-        end
-    end
-    return coroutine.wrap(iter)
-end
-
-local function removeCollision(sceneNode)
-    for node in traverseRoots { sceneNode } do
-        if node:isInstanceOfType(tes3.niType.RootCollisionNode) then
-            node.appCulled = true
-        end
-    end
-end
-
-local function removeLight(root)
-    for node in traverseRoots { root } do
-        --Kill particles
-        if node.RTTI.name == "NiBSParticleNode" then
-            --node.appCulled = true
-            node.parent:detachChild(node)
-        end
-        --Kill Melchior's Lantern glow effect
-        if node.name == "LightEffectSwitch" or node.name == "Glow" then
-            --node.appCulled = true
-            node.parent:detachChild(node)
-        end
-        if node.name == "AttachLight" then
-            --node.appCulled = true
-            node.parent:detachChild(node)
-        end
-
-        -- Kill materialProperty
-        local materialProperty = node:getProperty(0x2)
-        if materialProperty then
-            if (materialProperty.emissive.r > 1e-5 or materialProperty.emissive.g > 1e-5 or materialProperty.emissive.b > 1e-5 or materialProperty.controller) then
-                materialProperty = node:detachProperty(0x2):clone()
-                node:attachProperty(materialProperty)
-
-                -- Kill controllers
-                materialProperty:removeAllControllers()
-
-                -- Kill emissives
-                local emissive = materialProperty.emissive
-                emissive.r, emissive.g, emissive.b = 0, 0, 0
-                materialProperty.emissive = emissive
-
-                node:updateProperties()
-            end
-        end
-        -- Kill glowmaps
-        local texturingProperty = node:getProperty(0x4)
-        local newTextureFilepath = "Textures\\tx_black_01.dds"
-        if (texturingProperty and texturingProperty.maps[4]) then
-            texturingProperty.maps[4].texture = niSourceTexture.createFromPath(newTextureFilepath)
-        end
-        if (texturingProperty and texturingProperty.maps[5]) then
-            texturingProperty.maps[5].texture = niSourceTexture.createFromPath(newTextureFilepath)
-        end
-    end
-end
-
+--- listener
 ---@class Context
 local context = {
     enable = false,
     target = nil, ---@type tes3alchemy|tes3apparatus|tes3armor|tes3book|tes3clothing|tes3ingredient|tes3light|tes3lockpick|tes3misc|tes3probe|tes3repairTool|tes3weapon?
 }
-
--- listener
 
 ---@param e itemTileUpdatedEventData
 local function OnItemTileUpdated(e)
@@ -107,13 +22,11 @@ local function OnItemTileUpdated(e)
         ---@param ev tes3uiEventData
         function(ev)
             context.target = e.item
-            logger:trace("enter: %s", context.target.name)
         end)
     e.element:registerAfter(tes3.uiEvent.mouseLeave,
         ---@param ev tes3uiEventData
         function(ev)
             if context.target then
-                logger:trace("leave: %s", context.target.name)
                 context.target = nil
             end
         end)
@@ -122,6 +35,7 @@ end
 ---@param menuEixt boolean
 local function LeaveInspection(menuEixt)
     if context.enable then
+        logger:info("Leave Inspection")
         for _, controller in ipairs(controllers) do
             controller:Deactivate({ menuExit = menuEixt })
         end
@@ -132,20 +46,16 @@ end
 
 local function EnterInspection()
     -- and more condition
-    if context.enable then
+    if context.enable or not context.target then
         return
     end
+    logger:info("Enter Inspection: %s", context.target.name)
 
-
-    if context.target then
-
-        for _, controller in ipairs(controllers) do
-            controller:Activate({ target = context.target })
-        end
-        context.target = nil
-
-        context.enable = true
+    for _, controller in ipairs(controllers) do
+        controller:Activate({ target = context.target, offset = 10 })
     end
+    context.target = nil
+    context.enable = true
 end
 
 ---@param e keyDownEventData
@@ -167,51 +77,67 @@ local function TestInput(e, key)
     return true
 end
 
-
 ---@param e keyDownEventData
 local function OnKeyDown(e)
     if tes3.onMainMenu() then
         return
     end
     if TestInput(e, config.input.keybind) then
+        -- test tagreting
+        -- first time, visible menu mult, why?
+        if not tes3.menuMode() and not context.enable and not context.target then
+            local ref = tes3.getPlayerTarget()
+            if ref and ref.object then -- and more conditions
+                -- context.target = ref.object
+                -- tes3ui.enterMenuMode("MenuInspection")
+            end
+        end
+
         LeaveInspection(false)
         EnterInspection()
+        if context.enable then
+            --e.claim = true
+        end
     end
 end
 
----@param e keyUpEventData
-local function OnKeyUp(e)
-end
 
 ---@param e menuExitEventData
 local function OnMenuExit(e)
-    LeaveInspection(true)
+    -- fail-safe
+    --LeaveInspection(true)
+    if context.enable then
+        logger:error("Not terminated")
+    end
 end
 
 ---@param e loadEventData
 local function OnLoad(e)
-    -- if it needs finalization
-    --LeaveInspection(true)
+    LeaveInspection(true)
+    -- or deallocate
+    for _, controller in ipairs(controllers) do
+        controller:Reset()
+    end
+    context.target = nil
 end
 
 local function OnInitialized()
     event.register(tes3.event.itemTileUpdated, OnItemTileUpdated)
-    event.register(tes3.event.keyDown, OnKeyDown)
-    event.register(tes3.event.keyUp, OnKeyUp)
+    event.register(tes3.event.keyDown, OnKeyDown, { priority = 0 })
     event.register(tes3.event.menuExit, OnMenuExit)
     event.register(tes3.event.load, OnLoad)
 
     local RightClickMenuExit = include("mer.RightClickMenuExit")
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
+        local settings = require("InspectItem.settings")
         RightClickMenuExit.registerMenu({
-            menuId = "MenuInspection",
-            buttonId = "Return",
+            menuId = settings.menuName,
+            buttonId = settings.returnButtonName,
         })
     end
     event.register("MenuInspectionClose", function(e)
         LeaveInspection(false)
     end)
-
 end
 
 event.register(tes3.event.initialized, OnInitialized)

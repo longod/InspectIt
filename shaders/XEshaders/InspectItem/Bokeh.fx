@@ -37,7 +37,7 @@ static const float blur_falloff = 2.0; // More means more blur and less respect 
 static const float R = 6.0; // maximum blur radius in pixels
 static float Rfixed = R / (1280 * rcpres.x); // standardize blur across resolutions
 
-float focal_length = 0.0f;
+float focus_distance = 0.0f;
 // ** END OF
 // **
 
@@ -83,7 +83,7 @@ float4 sample0(sampler2D s, float2 t)
 
 float4 dof(float2 tex : TEXCOORD) : COLOR0
 {
-    float s = focal_length; //sample0(s1, float2(0.5, 0.5)).r * unit2m;
+    float s = focus_distance; //sample0(s1, float2(0.5, 0.5)).r * unit2m;
 
     float z_corr = length(float3((tex.x - 0.5) * t, (tex.y - 0.5) * t / rcpres.y * rcpres.x, 1));
     float z = z_corr * unit2m * sample0(s1, tex).r;

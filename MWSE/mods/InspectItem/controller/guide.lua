@@ -4,6 +4,7 @@ local config = require("InspectItem.config")
 ---@class Guide : IController
 ---@field menu tes3uiElement?
 ---@field nameLabel tes3uiElement?
+---@field keybindLabel tes3uiElement?
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -49,7 +50,7 @@ local function GetComboString(keyCombo)
     if hasAlt then table.insert(prefixes, "Alt") end
     if hasCtrl then table.insert(prefixes, "Ctrl") end
     table.insert(prefixes, comboText)
-    return table.concat(prefixes, " - ")
+    return table.concat(prefixes, " + ")
 end
 
 ---@param self Guide
@@ -58,12 +59,15 @@ function this.Activate(self, params)
     if self.menu then
         self.menu.visible = true
         self.nameLabel.text = params.target.name
+        self.keybindLabel.text = ": " .. GetComboString(config.input.keybind)
+        self.menu:updateLayout()
         return
     end
+    local settings = require("InspectItem.settings")
 
     -- This modal menu is a must. If there is not a single modal menu visible on the screen, right-clicking will cause all menus to close and return.
     -- This causes unexpected screen transitions and glitches. Especially in Barter.
-    local menu = tes3ui.createMenu({ id = "MenuInspection", dragFrame = false, fixedFrame = true, modal = true })
+    local menu = tes3ui.createMenu({ id = settings.menuName, dragFrame = false, fixedFrame = true, modal = true })
     self.menu = menu
     menu:destroyChildren()
     menu.flowDirection = tes3.flowDirection.topToBottom
@@ -97,11 +101,11 @@ function this.Activate(self, params)
     row.autoHeight = true
     row.childAlignY = 0.5
     row.paddingTop = 2
-    local button = row:createButton({ id = "Return", text = "Return" })
+    local button = row:createButton({ id = settings.returnButtonName, text = "Return" })
     button:register(tes3.uiEvent.mouseClick, function(e)
         event.trigger("MenuInspectionClose")
     end)
-    row:createLabel({ text = ": " .. GetComboString(config.input.keybind) })
+    self.keybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.keybind) })
 
     menu:updateLayout()
 end
@@ -112,6 +116,16 @@ function this.Deactivate(self, params)
     if self.menu then
         self.menu.visible = false
     end
+end
+
+---@param self Guide
+function this.Reset(self)
+    if self.menu then
+        self.menu:destroy()
+        self.menu = nil
+    end
+    self.nameLabel = nil
+    self.keybindLabel = nil
 end
 
 return this

@@ -114,4 +114,9 @@ function this.Deactivate(self, params)
     end
 end
 
+---@param self Visibility
+function this.Reset(self)
+    self.visibility = {}
+end
+
 return this

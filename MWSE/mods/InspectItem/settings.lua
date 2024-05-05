@@ -1,16 +1,18 @@
 local this = {}
 this.modName = "Inspect Item"
 this.configPath = "InspectItem"
+this.menuName = "InspectItem:MenuInspection"
+this.returnButtonName = "InspectItem:Return"
 
 ---@class Config
 local defaultConfig = {
     input = {
         ---@type mwseKeyCombo
         keybind = {
-            keyCode = tes3.scanCode.x --[[@as tes3.scanCode]],
+            keyCode = tes3.scanCode.e --[[@as tes3.scanCode]], -- examine
             isShiftDown = false,
             isAltDown = false,
-            isControlDown = false,
+            isControlDown = true,
         },
         -- sensivility
     },

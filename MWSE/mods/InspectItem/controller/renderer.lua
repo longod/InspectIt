@@ -38,4 +38,8 @@ function this.Deactivate(self, params)
     mge.render.pauseRenderingInMenus = self.pauseRenderingInMenus
 end
 
+---@param self Renderer
+function this.Reset(self)
+end
+
 return this

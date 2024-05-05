@@ -1,4 +1,5 @@
 local base = require("InspectItem.controller.base")
+local unit2m = 1.0 / 70.0 -- 1units/70meters
 
 ---@class Bokeh : IController
 ---@field shader mgeShaderHandle?
@@ -38,6 +39,7 @@ function this.Activate(self, params)
     end
     if self.shader then
         self.shader.enabled = true
+        self.shader["focus_distance"] = params.offset * unit2m
     end
 end
 
@@ -47,6 +49,10 @@ function this.Deactivate(self, params)
     if self.shader then
         self.shader.enabled = false
     end
+end
+
+---@param self Bokeh
+function this.Reset(self)
 end
 
 return this

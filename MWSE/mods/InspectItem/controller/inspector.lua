@@ -21,6 +21,20 @@ function this.new()
     return instance
 end
 
+local function traverseRoots(roots)
+    local function iter(nodes)
+        for _, node in ipairs(nodes or roots) do
+            if node then
+                coroutine.yield(node)
+                if node.children then
+                    iter(node.children)
+                end
+            end
+        end
+    end
+    return coroutine.wrap(iter)
+end
+
 ---@param self Inspector
 ---@param e enterFrameEventData
 function this.OnEnterFrame(self, e)
@@ -138,7 +152,7 @@ function this.Activate(self, params)
         -- it seems to useful dummy camera space node
         -- not cloned data
         local pos = node.translation
-        local offset = tes3vector3.new(0, 10, 0)
+        local offset = tes3vector3.new(0, params.offset, 0)
         node.translation = pos + offset
 
         node.appCulled = false
@@ -188,9 +202,7 @@ function this.Activate(self, params)
         self.enterFrame = function (e)
             self:OnEnterFrame(e)
         end
-
         event.register(tes3.event.enterFrame, self.enterFrame)
-        --tes3ui.suppressTooltip(true)
         event.register(tes3.event.activate, OnActivate)
     end
 end
@@ -211,6 +223,11 @@ function this.Deactivate(self, params)
 
         self.node = nil
     end
+end
+
+---@param self Inspector
+function this.Reset(self)
+    self.node = nil
 end
 
 return this
