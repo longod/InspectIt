@@ -15,19 +15,20 @@ local defaultConfig = {
     },
     target = {
         itemTile = true,
-        -- inventry, barter, container
+        -- inventry, barter, container, alchemy, enchant, item selector
         --lookAt = true,
         --hover = true,
     },
-    graphics = {
-        DoF = true,
+    vfx = {
+        -- show guide ui
+        bokeh = true,
         -- apply book and scroll, journal
     },
     ---@class Config.Development
     development = {
         logLevel = "INFO",
         logToConsole = false,
-        test = false,
+        -- test = false,
     }
 }
 
