@@ -32,14 +32,18 @@ local function OnItemTileUpdated(e)
         end)
 end
 
----@param menuEixt boolean
-local function LeaveInspection(menuEixt)
+---@param menuExit boolean
+local function LeaveInspection(menuExit)
     if context.enable then
         logger:info("Leave Inspection")
         for _, controller in ipairs(controllers) do
-            controller:Deactivate({ menuExit = menuEixt })
+            controller:Deactivate({ menuExit = menuExit })
         end
         context.enable = false
+
+        if not menuExit then
+            tes3.worldController.menuClickSound:play()
+        end
     end
 end
 
@@ -56,6 +60,8 @@ local function EnterInspection()
     end
     context.target = nil
     context.enable = true
+
+    tes3.worldController.menuClickSound:play()
 end
 
 ---@param e keyDownEventData
@@ -93,8 +99,11 @@ local function OnKeyDown(e)
             end
         end
 
-        LeaveInspection(false)
-        EnterInspection()
+        if context.enable then
+            LeaveInspection(false)
+        else
+            EnterInspection()
+        end
         if context.enable then
             --e.claim = true
         end
