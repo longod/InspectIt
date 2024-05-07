@@ -3,6 +3,7 @@ local config = require("InspectItem.config")
 
 ---@class Guide : IController
 ---@field menu tes3uiElement?
+---@field instruction tes3uiElement?
 ---@field nameLabel tes3uiElement?
 ---@field keybindLabel tes3uiElement?
 local this = {}
@@ -58,6 +59,7 @@ end
 function this.Activate(self, params)
     if self.menu then
         self.menu.visible = true
+        self.instruction.visible = config.display.instruction
         self.nameLabel.text = params.target.name
         self.keybindLabel.text = ": " .. GetComboString(config.input.keybind)
         self.menu:updateLayout()
@@ -75,6 +77,8 @@ function this.Activate(self, params)
     menu.absolutePosAlignY = 0.98
     menu.autoWidth = true
     menu.autoHeight = true
+    menu.minWidth = 0 -- or tooltip size?
+    menu.minHeight = 0
     --menu.alpha = 0
     local border = menu:createThinBorder()
     border.flowDirection = tes3.flowDirection.topToBottom
@@ -87,13 +91,14 @@ function this.Activate(self, params)
 
     -- if guided
     local block = border:createBlock()
+    self.instruction = block
     block.flowDirection = tes3.flowDirection.topToBottom
     block.autoWidth = true
     block.autoHeight = true
     block.childAlignX = 0.5
     block:createDivider().widthProportional = 1.0
-    block:createLabel({ text = "Rotate: Mouse drag" })
-    block:createLabel({ text = "Zoom: Mouse wheel" })
+    block:createLabel({ text = settings.i18n("guide.rotate.text") })
+    block:createLabel({ text = settings.i18n("guide.zoom.text") })
     -- reset
     local row = block:createBlock()
     row.flowDirection = tes3.flowDirection.leftToRight
@@ -101,11 +106,15 @@ function this.Activate(self, params)
     row.autoHeight = true
     row.childAlignY = 0.5
     row.paddingTop = 2
-    local button = row:createButton({ id = settings.returnButtonName, text = "Return" })
+    local button = row:createButton({ id = settings.returnButtonName, text = settings.i18n("guide.return.text") })
     button:register(tes3.uiEvent.mouseClick, function(e)
-        event.trigger("MenuInspectionClose")
+        event.trigger(settings.returnEventName)
     end)
     self.keybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.keybind) })
+
+    if not config.display.instruction then
+        self.instruction.visible = false
+    end
 
     menu:updateLayout()
 end
@@ -124,6 +133,7 @@ function this.Reset(self)
         self.menu:destroy()
         self.menu = nil
     end
+    self.instruction = nil
     self.nameLabel = nil
     self.keybindLabel = nil
 end

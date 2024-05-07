@@ -10,33 +10,119 @@ local function OnModConfigReady(e)
         label = settings.modName,
     })
     page.sidebar:createInfo({
-        text = "Inspect It!"
+        text = settings.i18n("mcm.sidebar.info")
     })
 
     do
         local input = page:createCategory({
-            label = "Input",
-            description = "input",
+            label = settings.i18n("mcm.input.category.label"),
+            description = settings.i18n("mcm.input.category.description"),
         })
         input:createKeyBinder({
-            label = "Assign Keybind",
-            description = "Assign a new keybind to perform awesome tasks.",
+            label = settings.i18n("mcm.input.category.label"),
+            description = settings.i18n("mcm.input.category.description"),
             variable = mwse.mcm.createTableVariable({
                 id = "keybind",
-                table = config.input
+                table = config.input,
             }),
             allowCombinations = true,
             allowMouse = false,
         })
+
+        input:createSlider({
+            label = settings.i18n("mcm.input.sensitivityX.label"),
+            description = settings.i18n("mcm.input.sensitivityX.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "sensitivityX",
+                table = config.input,
+            }),
+            min = 0,
+            max = 2,
+            step = 0.01,
+            jump = 0.05,
+            decimalPlaces = 2,
+        })
+        input:createSlider({
+            label = settings.i18n("mcm.input.sensitivityY.label"),
+            description = settings.i18n("mcm.input.sensitivityY.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "sensitivityY",
+                table = config.input,
+            }),
+            min = 0,
+            max = 2,
+            step = 0.01,
+            jump = 0.05,
+            decimalPlaces = 2,
+        })
+        input:createSlider({
+            label = settings.i18n("mcm.input.sensitivityZ.label"),
+            description = settings.i18n("mcm.input.sensitivityZ.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "sensitivityZ",
+                table = config.input,
+            }),
+            min = 0,
+            max = 2,
+            step = 0.01,
+            jump = 0.05,
+            decimalPlaces = 2,
+        })
+        input:createOnOffButton({
+            label = settings.i18n("mcm.input.inversionX.label"),
+            description = settings.i18n("mcm.input.inversionX.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "inversionX",
+                table = config.input,
+            }),
+        })
+        input:createOnOffButton({
+            label = settings.i18n("mcm.input.inversionY.label"),
+            description = settings.i18n("mcm.input.inversionY.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "inversionY",
+                table = config.input,
+            }),
+        })
+        input:createOnOffButton({
+            label = settings.i18n("mcm.input.inversionZ.label"),
+            description = settings.i18n("mcm.input.inversionZ.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "inversionZ",
+                table = config.input,
+            }),
+        })
+    end
+    do
+        local display = page:createCategory({
+            label = settings.i18n("mcm.display.category.label"),
+            description = settings.i18n("mcm.display.category.description"),
+        })
+        display:createOnOffButton({
+            label = settings.i18n("mcm.display.instruction.label"),
+            description = settings.i18n("mcm.display.instruction.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "instruction",
+                table = config.display,
+            }),
+        })
+        display:createOnOffButton({
+            label = settings.i18n("mcm.display.bokeh.label"),
+            description = settings.i18n("mcm.display.bokeh.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "bokeh",
+                table = config.display,
+            }),
+        })
     end
     do
         local dev = page:createCategory({
-            label = "Development",
-            description = "Features for Development",
+            label = settings.i18n("mcm.development.category.label"),
+            description = settings.i18n("mcm.development.category.description"),
         })
         dev:createDropdown({
-            label = "Logging Level",
-            description = "Set the log level.",
+            label = settings.i18n("mcm.development.logLevel.label"),
+            description = settings.i18n("mcm.development.logLevel.description"),
             options = {
                 { label = "TRACE", value = "TRACE" },
                 { label = "DEBUG", value = "DEBUG" },
@@ -47,7 +133,7 @@ local function OnModConfigReady(e)
             },
             variable = mwse.mcm.createTableVariable({
                 id = "logLevel",
-                table = config.development
+                table = config.development,
             }),
             callback = function(self)
                 local logger = require("InspectItem.logger")
@@ -55,8 +141,8 @@ local function OnModConfigReady(e)
             end
         })
         dev:createOnOffButton({
-            label = "Log to Console",
-            description = "Output the log to console.",
+            label = settings.i18n("mcm.development.logToConsole.label"),
+            description = settings.i18n("mcm.development.logToConsole.description"),
             variable = mwse.mcm.createTableVariable({
                 id = "logToConsole",
                 table = config.development,
@@ -65,15 +151,6 @@ local function OnModConfigReady(e)
                 local logger = require("InspectItem.logger")
                 logger.logToConsole = config.development.logToConsole
             end
-        })
-        dev:createOnOffButton({
-            label = "Unit testing",
-            description = "Run Unit testing on startup.",
-            variable = mwse.mcm.createTableVariable({
-                id = "test",
-                table = config.development,
-                restartRequired = true,
-            })
         })
     end
 end

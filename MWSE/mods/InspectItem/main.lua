@@ -33,6 +33,7 @@ local function OnItemTileUpdated(e)
 end
 
 ---@param menuExit boolean
+---@return boolean
 local function LeaveInspection(menuExit)
     if context.enable then
         logger:info("Leave Inspection")
@@ -40,28 +41,26 @@ local function LeaveInspection(menuExit)
             controller:Deactivate({ menuExit = menuExit })
         end
         context.enable = false
-
-        if not menuExit then
-            tes3.worldController.menuClickSound:play()
-        end
+        return true
     end
+    return false
 end
 
 
+---@return boolean
 local function EnterInspection()
     -- and more condition
     if context.enable or not context.target then
-        return
+        return false
     end
     logger:info("Enter Inspection: %s", context.target.name)
 
     for _, controller in ipairs(controllers) do
-        controller:Activate({ target = context.target, offset = 10 })
+        controller:Activate({ target = context.target, offset = 20 })
     end
     context.target = nil
     context.enable = true
-
-    tes3.worldController.menuClickSound:play()
+    return true
 end
 
 ---@param e keyDownEventData
@@ -100,9 +99,13 @@ local function OnKeyDown(e)
         end
 
         if context.enable then
-            LeaveInspection(false)
+            if LeaveInspection(false) then
+                tes3.worldController.menuClickSound:play()
+            end
         else
-            EnterInspection()
+            if EnterInspection() then
+                tes3.worldController.menuClickSound:play()
+            end
         end
         if context.enable then
             --e.claim = true
@@ -136,17 +139,18 @@ local function OnInitialized()
     event.register(tes3.event.menuExit, OnMenuExit)
     event.register(tes3.event.load, OnLoad)
 
+    local settings = require("InspectItem.settings")
     local RightClickMenuExit = include("mer.RightClickMenuExit")
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
-        local settings = require("InspectItem.settings")
         RightClickMenuExit.registerMenu({
             menuId = settings.menuName,
             buttonId = settings.returnButtonName,
         })
     end
-    event.register("MenuInspectionClose", function(e)
-        LeaveInspection(false)
-    end)
+    event.register(settings.returnEventName,
+        function(_)
+            LeaveInspection(false)
+        end)
 end
 
 event.register(tes3.event.initialized, OnInitialized)

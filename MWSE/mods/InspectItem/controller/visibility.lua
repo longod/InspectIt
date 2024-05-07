@@ -13,7 +13,7 @@ local defaults = {
 local menus = {
     "MenuAlchemy", --
     "MenuAttributes", --
-    "MenuAttributesList", -- Enchanting/spellmaking effect attribute
+    -- "MenuAttributesList", -- Enchanting/spellmaking effect attribute
     -- "MenuAudio", -- Options, audio
     "MenuBarter", --
     -- "MenuBirthSign", --
@@ -36,15 +36,15 @@ local menus = {
     -- "MenuLoad", --
     -- "MenuLoading", --
     "MenuMagic", -- Spell/enchanted item selector
-    "MenuMagicSelect", --
+    -- "MenuMagicSelect", --
     "MenuMap", --
     -- "MenuMapNoteEdit", --
     -- "MenuMessage", --
     -- "MenuMulti", -- Status bars, current weapon/magic, active effects and minimap
     -- "MenuName", --
-    "MenuNotify1", --
-    "MenuNotify2", --
-    "MenuNotify3", --
+    -- "MenuNotify1", --
+    -- "MenuNotify2", --
+    -- "MenuNotify3", --
     -- "MenuOptions", -- Main menu
     -- "MenuPersuasion", --
     -- "MenuPrefs", -- Options, preferences
@@ -59,9 +59,9 @@ local menus = {
     "MenuServiceSpells", --
     -- "MenuServiceTraining", --
     -- "MenuServiceTravel", --
-    "MenuSetValues", -- Enchanting/spellmaking effect values
+    -- "MenuSetValues", -- Enchanting/spellmaking effect values
     "MenuSkills", --
-    "MenuSkillsList", -- Enchanting/spellmaking effect skill
+    -- "MenuSkillsList", -- Enchanting/spellmaking effect skill
     "MenuSpecialization", --
     "MenuSpellmaking", --
     "MenuStat", -- Player attributes, skills, factions etc.

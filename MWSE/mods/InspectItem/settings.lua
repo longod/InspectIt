@@ -2,19 +2,26 @@ local this = {}
 this.modName = "Inspect Item"
 this.configPath = "InspectItem"
 this.menuName = "InspectItem:MenuInspection"
-this.returnButtonName = "InspectItem:Return"
+this.returnButtonName = "InspectItem:ReturnButton"
+this.returnEventName = "InspectItem:ReturnEvent"
+this.i18n = mwse.loadTranslations("InspectItem")
 
 ---@class Config
 local defaultConfig = {
     input = {
         ---@type mwseKeyCombo
         keybind = {
-            keyCode = tes3.scanCode.e --[[@as tes3.scanCode]], -- examine
+            keyCode = tes3.scanCode.e --[[@as tes3.scanCode]],
             isShiftDown = false,
             isAltDown = false,
             isControlDown = true,
         },
-        -- sensivility
+        sensitivityX = 1,
+        sensitivityY = 1,
+        sensitivityZ = 1,
+        inversionX = false,
+        inversionY = false,
+        inversionZ = false,
     },
     target = {
         itemTile = true,
@@ -22,8 +29,8 @@ local defaultConfig = {
         --lookAt = true,
         --hover = true,
     },
-    vfx = {
-        -- show guide ui
+    display = {
+        instruction = true,
         bokeh = true,
         -- apply book and scroll, journal
     },
