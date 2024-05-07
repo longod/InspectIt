@@ -1,6 +1,11 @@
 local base = require("InspectItem.controller.base")
 local config = require("InspectItem.config").input
-local zoomDuration = 0.4
+local zoomThreshold = 0 -- delta
+local zoomDuration = 0.4 -- second
+local angleThreshold = 2 -- pixel
+local velocityEpsilon = 0.000001
+local friction = 0.1 -- Attenuation with respect to velocity
+local resistance = 3.0 -- Attenuation with respect to time
 
 ---@class Inspector : IController
 ---@field node niNode?
@@ -99,8 +104,9 @@ function this.OnEnterFrame(self, e)
         local wc = tes3.worldController
         local ic = wc.inputController
 
-        local zoom = ic.mouseState.z * 0.001 * config.sensitivityZ * (config.inversionZ and -1 or 1)
-        if zoom ~= 0 then
+        local zoom = ic.mouseState.z
+        if math.abs(zoom) > zoomThreshold then
+            zoom = zoom * 0.001 * config.sensitivityZ * (config.inversionZ and -1 or 1)
             self.logger:trace("wheel %f", ic.mouseState.z)
             self.logger:trace("wheel velocity %f", zoom)
             -- update current zooming
@@ -122,11 +128,10 @@ function this.OnEnterFrame(self, e)
             local zAngle = ic.mouseState.x
             local xAngle = ic.mouseState.y
 
-            local threshold = 2
-            if math.abs(zAngle) <= threshold then
+            if math.abs(zAngle) <= angleThreshold then
                 zAngle = 0
             end
-            if math.abs(xAngle) <= threshold then
+            if math.abs(xAngle) <= angleThreshold then
                 xAngle = 0
             end
             zAngle = zAngle * wc.mouseSensitivityX * config.sensitivityX * (config.inversionX and -1 or 1)
@@ -137,8 +142,7 @@ function this.OnEnterFrame(self, e)
             self.angularVelocity.x = xAngle
         end
 
-        local epsilon = 0.000001
-        if self.angularVelocity:dot(self.angularVelocity) > epsilon then
+        if self.angularVelocity:dot(self.angularVelocity) > velocityEpsilon then
             local zAxis = tes3vector3.new(0, 0, 1) -- Y
             local xAxis = tes3vector3.new(1, 0, 0)
 
@@ -156,8 +160,7 @@ function this.OnEnterFrame(self, e)
             m:fromQuaternion(dest)
             self.node.rotation = m:copy()
 
-            local friction = 0.0001
-            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction, e.delta)
+            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction, math.clamp(e.delta * resistance, 0, 1))
         end
 
         -- updateTime = updateTime  + e.delta
@@ -175,6 +178,10 @@ end
 ---@param params Activate.Params
 function this.Activate(self, params)
     local target = params.target
+    if not target then
+        return
+    end
+
     if target then
         self.angularVelocity = tes3vector3.new(0,0,0)
 

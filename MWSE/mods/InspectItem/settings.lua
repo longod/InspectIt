@@ -24,10 +24,10 @@ local defaultConfig = {
         inversionZ = false,
     },
     target = {
-        itemTile = true,
+        item = true,
+        activation = true,
+        -- hover = true
         -- inventry, barter, container, alchemy, enchant, item selector
-        --lookAt = true,
-        --hover = true,
     },
     display = {
         instruction = true,

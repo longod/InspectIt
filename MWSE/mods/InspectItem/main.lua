@@ -1,6 +1,7 @@
 local config = require("InspectItem.config")
 local logger = require("InspectItem.logger")
 
+---@type IController[]
 local controllers = {
     require("InspectItem.controller.renderer").new(),
     require("InspectItem.controller.bokeh").new(),
@@ -13,7 +14,8 @@ local controllers = {
 ---@class Context
 local context = {
     enable = false,
-    target = nil, ---@type tes3alchemy|tes3apparatus|tes3armor|tes3book|tes3clothing|tes3ingredient|tes3light|tes3lockpick|tes3misc|tes3probe|tes3repairTool|tes3weapon?
+    onMenu = false,
+    target = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
 }
 
 ---@param e itemTileUpdatedEventData
@@ -88,21 +90,24 @@ local function OnKeyDown(e)
         return
     end
     if TestInput(e, config.input.keybind) then
-        -- test tagreting
-        -- first time, visible menu mult, why?
-        if not tes3.menuMode() and not context.enable and not context.target then
-            local ref = tes3.getPlayerTarget()
-            if ref and ref.object then -- and more conditions
-                -- context.target = ref.object
-                -- tes3ui.enterMenuMode("MenuInspection")
-            end
-        end
-
         if context.enable then
             if LeaveInspection(false) then
                 tes3.worldController.menuClickSound:play()
+                if not context.onMenu then
+                    tes3ui.leaveMenuMode()
+                end
             end
         else
+            context.onMenu = true
+            if not tes3.menuMode() and not context.enable and not context.target then
+                local ref = tes3.getPlayerTarget()
+                if ref and ref.object then -- and more conditions
+                    context.target = ref.object
+                    context.onMenu = false
+                    tes3ui.enterMenuMode("MenuInspection") -- if succeed
+                end
+            end
+
             if EnterInspection() then
                 tes3.worldController.menuClickSound:play()
             end
@@ -121,6 +126,7 @@ local function OnMenuExit(e)
     if context.enable then
         logger:error("Not terminated")
     end
+    context.target = nil
 end
 
 ---@param e loadEventData
@@ -140,6 +146,13 @@ local function OnInitialized()
     event.register(tes3.event.load, OnLoad)
 
     local settings = require("InspectItem.settings")
+    -- menu event
+    event.register(settings.returnEventName,
+    function(_)
+        LeaveInspection(false)
+    end)
+
+    -- RightClickMenuExit mod
     local RightClickMenuExit = include("mer.RightClickMenuExit")
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
         RightClickMenuExit.registerMenu({
@@ -147,10 +160,6 @@ local function OnInitialized()
             buttonId = settings.returnButtonName,
         })
     end
-    event.register(settings.returnEventName,
-        function(_)
-            LeaveInspection(false)
-        end)
 end
 
 event.register(tes3.event.initialized, OnInitialized)
