@@ -104,12 +104,12 @@ local function OnKeyDown(e)
                 if ref and ref.object then -- and more conditions
                     context.target = ref.object
                     context.onMenu = false
-                    tes3ui.enterMenuMode("MenuInspection") -- if succeed
+                    tes3ui.enterMenuMode("MenuInspection") -- TODO controller
                 end
             end
 
             if EnterInspection() then
-                tes3.worldController.menuClickSound:play()
+                tes3.worldController.menuClickSound:play() -- TODO controller
             end
         end
         if context.enable then

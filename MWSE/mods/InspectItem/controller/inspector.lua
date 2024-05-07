@@ -1,11 +1,81 @@
 local base = require("InspectItem.controller.base")
 local config = require("InspectItem.config").input
-local zoomThreshold = 0 -- delta
+local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 2 -- pixel
 local velocityEpsilon = 0.000001
-local friction = 0.1 -- Attenuation with respect to velocity
-local resistance = 3.0 -- Attenuation with respect to time
+local friction = 0.1     -- Attenuation with respect to velocity
+local resistance = 3.0   -- Attenuation with respect to time
+
+---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
+---@return tes3vector3?
+local function GetOrientation(object)
+    local orientations = {
+        -- [tes3.objectType.activator] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0), -- fixed
+        [tes3.objectType.ammunition] = tes3vector3.new(0, 0, -90),
+        [tes3.objectType.apparatus] = tes3vector3.new(0, 0, 0), -- fixed
+        -- [tes3.objectType.armor] = tes3vector3.new(-90, 0, 0), -- It's not aligned. It's a mess.
+        -- [tes3.objectType.birthsign] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.bodyPart] = tes3vector3.new(0, 0, 0), -- fixed?
+        [tes3.objectType.book] = tes3vector3.new(-90, 0, 0),
+        -- [tes3.objectType.cell] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.class] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0), -- need angled
+        -- [tes3.objectType.container] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.creature] = tes3vector3.new(0, 0, 0), -- fixed
+        -- [tes3.objectType.dialogue] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.dialogueInfo] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.door] = tes3vector3.new(0, 0, -90),
+        -- [tes3.objectType.enchantment] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.faction] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.gmst] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.ingredient] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.land] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.landTexture] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.leveledCreature] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.leveledItem] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.light] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.lockpick] = tes3vector3.new(-90, 0, 0),
+        -- [tes3.objectType.magicEffect] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.miscItem] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobileActor] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobileCreature] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobileNPC] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobilePlayer] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobileProjectile] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.mobileSpellProjectile] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.npc] = tes3vector3.new(0, 0, 0), -- fixed
+        -- [tes3.objectType.pathGrid] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.probe] = tes3vector3.new(-90, 0, 0),
+        -- [tes3.objectType.quest] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.race] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.reference] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.region] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.repairItem] = tes3vector3.new(-90, 0, 0),
+        -- [tes3.objectType.script] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.skill] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.sound] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.soundGenerator] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.spell] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.startScript] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.static] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.weapon] = tes3vector3.new(-90, 0, 0),
+    }
+
+    if object.objectType == tes3.objectType.armor then
+        ---@cast object tes3armor
+        -- object.slot
+    elseif object.objectType == tes3.objectType.clothing then
+        ---@cast object tes3clothing
+        -- object.slot
+    elseif object.objectType == tes3.objectType.bodyPart then
+        ---@cast object tes3bodyPart
+        -- object.part
+        -- object.partType
+    end
+    return orientations[object.objectType]
+end
 
 ---@class Inspector : IController
 ---@field node niNode?
@@ -93,7 +163,6 @@ end
 ---@param self Inspector
 ---@param e enterFrameEventData
 function this.OnEnterFrame(self, e)
-
     if tes3.onMainMenu() then
         return
     end
@@ -117,7 +186,7 @@ function this.OnEnterFrame(self, e)
         end
 
         if self.zoomTime < zoomDuration then
-            self.zoomTime = math.min(self.zoomTime  + e.delta, zoomDuration)
+            self.zoomTime = math.min(self.zoomTime + e.delta, zoomDuration)
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self.node.scale = self.baseScale * scale
             self.logger:trace("zoom %f", scale)
@@ -160,8 +229,11 @@ function this.OnEnterFrame(self, e)
             m:fromQuaternion(dest)
             self.node.rotation = m:copy()
 
-            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction, math.clamp(e.delta * resistance, 0, 1))
+            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction,
+                math.clamp(e.delta * resistance, 0, 1))
         end
+        local euler = self.node.rotation:toEulerXYZ():copy()
+        tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
 
         -- updateTime = updateTime  + e.delta
         -- self.node:update({ controllers = true, time = updateTime })
@@ -183,14 +255,14 @@ function this.Activate(self, params)
     end
 
     if target then
-        self.angularVelocity = tes3vector3.new(0,0,0)
+        self.angularVelocity = tes3vector3.new(0, 0, 0)
 
 
 
         local node = target.sceneNode
 
         local mesh = target.mesh
-        node = tes3.loadMesh(mesh, false)--:clone() -- false if modified?
+        node = tes3.loadMesh(mesh, false) --:clone() -- false if modified?
 
         if tes3.player then
             -- hmm...?
@@ -248,7 +320,7 @@ function this.Activate(self, params)
         --camera = tes3.worldController.worldCamera
         local cameraRoot = camera.cameraRoot
         local cameraData = camera.cameraData
-        local fovX = cameraData.fov -- horizontal degree
+        local fovX = cameraData.fov                  -- horizontal degree
         self.logger:debug("fov: %f", cameraData.fov) -- or world fov?
         self.logger:debug("near: %f", cameraData.nearPlaneDistance)
         self.logger:debug("far: %f", cameraData.farPlaneDistance)
@@ -292,23 +364,36 @@ function this.Activate(self, params)
             mz = 2
         end
         local imax = my + mz;
-        self.logger:debug("axis %d",imax)
+        self.logger:debug("axis %d", imax)
 
         -- TODO target.objectType
         -- tes3vector3() radian
 
         -- almost item y-up
 
-        local rotY = tes3matrix33.new()
-        rotY:toRotationY(math.rad(180))
-        local rotX = tes3matrix33.new()
-        rotX:toRotationX(math.rad(90))
-        node.rotation = node.rotation *  rotX:copy() * rotY:copy()
+
+        local findKey = function(o)
+            for key, value in pairs(tes3.objectType) do
+                if o == value then
+                    return key
+                end
+            end
+            return ""
+        end
+        self.logger:info("objectType: %s", findKey(target.objectType))
+        local orientation = GetOrientation(target)
+        if orientation then
+            local rot = tes3matrix33.new()
+            rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
+            node.rotation = node.rotation * rot:copy()
+        else
+            -- auto fitting
+        end
 
         -- consider distance to near place
 
         local scale = screenSize / boundsSize
-        self.logger:debug("fitting scale: %f", scale)
+        self.logger:info("fitting scale: %f", scale)
         node.scale = scale
 
 
@@ -340,7 +425,7 @@ function this.Activate(self, params)
 
         self.node = node
 
-        self.enterFrame = function (e)
+        self.enterFrame = function(e)
             self:OnEnterFrame(e)
         end
         event.register(tes3.event.enterFrame, self.enterFrame)

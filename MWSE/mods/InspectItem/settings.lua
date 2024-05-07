@@ -13,8 +13,8 @@ local defaultConfig = {
         keybind = {
             keyCode = tes3.scanCode.e --[[@as tes3.scanCode]],
             isShiftDown = false,
-            isAltDown = false,
-            isControlDown = true,
+            isAltDown = true,
+            isControlDown = false,
         },
         sensitivityX = 1,
         sensitivityY = 1,
