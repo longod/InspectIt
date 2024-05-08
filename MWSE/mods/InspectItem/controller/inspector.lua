@@ -2,7 +2,7 @@ local base = require("InspectItem.controller.base")
 local config = require("InspectItem.config").input
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
-local angleThreshold = 2 -- pixel
+local angleThreshold = 0 -- pixel
 local velocityEpsilon = 0.000001
 local friction = 0.1     -- Attenuation with respect to velocity
 local resistance = 3.0   -- Attenuation with respect to time
@@ -12,7 +12,7 @@ local resistance = 3.0   -- Attenuation with respect to time
 local function GetOrientation(object)
     local orientations = {
         -- [tes3.objectType.activator] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0), -- fixed
+        [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0),   -- fixed
         [tes3.objectType.ammunition] = tes3vector3.new(0, 0, -90),
         [tes3.objectType.apparatus] = tes3vector3.new(0, 0, 0), -- fixed
         -- [tes3.objectType.armor] = tes3vector3.new(-90, 0, 0), -- It's not aligned. It's a mess.
@@ -23,7 +23,7 @@ local function GetOrientation(object)
         -- [tes3.objectType.class] = tes3vector3.new(0, 0, 0),
         [tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0), -- need angled
         -- [tes3.objectType.container] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.creature] = tes3vector3.new(0, 0, 0), -- fixed
+        [tes3.objectType.creature] = tes3vector3.new(0, 0, 0),   -- fixed
         -- [tes3.objectType.dialogue] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.dialogueInfo] = tes3vector3.new(0, 0, 0),
         [tes3.objectType.door] = tes3vector3.new(0, 0, -90),
@@ -63,12 +63,16 @@ local function GetOrientation(object)
         [tes3.objectType.weapon] = tes3vector3.new(-90, 0, 0),
     }
 
+    -- weapon, throwing
+
     if object.objectType == tes3.objectType.armor then
         ---@cast object tes3armor
         -- object.slot
+        -- isLeftPart
     elseif object.objectType == tes3.objectType.clothing then
         ---@cast object tes3clothing
         -- object.slot
+        -- isLeftPart
     elseif object.objectType == tes3.objectType.bodyPart then
         ---@cast object tes3bodyPart
         -- object.part
@@ -78,8 +82,8 @@ local function GetOrientation(object)
 end
 
 ---@class Inspector : IController
----@field node niNode?
----@field offset niNode? pivot
+---@field root niNode?
+---@field pivot niNode?
 ---@field enterFrame fun(e : enterFrameEventData)?
 ---@field angularVelocity tes3vector3 -- vec2 doesnt have dot
 ---@field baseScale number
@@ -91,8 +95,8 @@ setmetatable(this, { __index = base })
 
 ---@type Inspector
 local defaults = {
-    node = nil,
-    offset = nil,
+    root = nil,
+    pivot = nil,
     enterFrame = nil,
     angularVelocity = tes3vector3.new(0, 0, 0),
     baseScale = 1,
@@ -110,18 +114,17 @@ function this.new()
     return instance
 end
 
-local function traverseRoots(roots)
-    local function iter(nodes)
-        for _, node in ipairs(nodes or roots) do
-            if node then
-                coroutine.yield(node)
-                if node.children then
-                    iter(node.children)
-                end
+---@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
+---@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape)
+local function foreach(node, func)
+    func(node)
+    if node.children then
+        for _, child in ipairs(node.children) do
+            if child then
+                foreach(child, func)
             end
         end
     end
-    return coroutine.wrap(iter)
 end
 
 ---@param t number [0,1]
@@ -167,7 +170,7 @@ function this.OnEnterFrame(self, e)
         return
     end
 
-    if self.node then
+    if self.root then
         -- tes3ui.captureMouseDrag may be better?
 
         local wc = tes3.worldController
@@ -183,13 +186,27 @@ function this.OnEnterFrame(self, e)
             self.zoomStart = scale
             self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, 2)
             self.zoomTime = 0
+            -- TODO consider distance to near place
         end
 
         if self.zoomTime < zoomDuration then
             self.zoomTime = math.min(self.zoomTime + e.delta, zoomDuration)
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
-            self.node.scale = self.baseScale * scale
-            self.logger:trace("zoom %f", scale)
+            local prev = self.root.scale
+            self.root.scale = self.baseScale * scale
+            self.logger:trace("zoom %f from %f", scale, prev)
+
+            -- rescale particle
+            foreach(self.pivot, function(node)
+                if node:isInstanceOfType(ni.type.NiParticles) then
+                    ---@cast node niParticles
+                    for index, value in ipairs(node.data.sizes) do
+                        node.data.sizes[index] = value * (prev / self.root.scale)
+                    end
+                    node.data:markAsChanged()
+                    node.data:updateModelBound()
+                end
+            end)
         end
 
         if ic:isMouseButtonDown(0) then
@@ -222,21 +239,23 @@ function this.OnEnterFrame(self, e)
             xRot:fromAngleAxis(self.angularVelocity.x, xAxis)
 
             local q = niQuaternion.new()
-            q:fromRotation(self.node.rotation:copy())
+            q:fromRotation(self.root.rotation:copy())
 
             local dest = zRot * xRot * q
             local m = tes3matrix33.new()
             m:fromQuaternion(dest)
-            self.node.rotation = m:copy()
+            self.root.rotation = m:copy()
 
             self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction,
                 math.clamp(e.delta * resistance, 0, 1))
         end
-        local euler = self.node.rotation:toEulerXYZ():copy()
-        tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
+        -- local euler = self.root.rotation:toEulerXYZ():copy()
+        -- tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
+
 
         -- updateTime = updateTime  + e.delta
-        -- self.node:update({ controllers = true, time = updateTime })
+        self.root:update({ controllers = true })
+        self.root:updateEffects()
     end
 end
 
@@ -244,6 +263,57 @@ end
 local function OnActivate(e)
     -- block picking up items
     e.block = true
+end
+
+---@param offset number
+---@return niNode
+---@return niNode
+local function SetupNode(offset)
+    local pivot = niNode.new() -- pivot node
+    pivot.name = "InspectItem:pivot"
+    local zBufferProperty = niZBufferProperty.new()
+    zBufferProperty.name = "zbuf yo"
+    -- depth test, depth write?
+    zBufferProperty:setFlag(true, 0)
+    zBufferProperty:setFlag(true, 1)
+    pivot:attachProperty(zBufferProperty)
+    pivot.appCulled = false
+
+    local root = niNode.new()
+    root.name = "InspectItem:root"
+    root:attachChild(pivot)
+    root.translation = tes3vector3.new(0, offset, 0)
+    root.appCulled = false
+    return root, pivot
+end
+
+---@param self Inspector
+---@param bounds tes3boundingBox
+---@param cameraData tes3worldControllerRenderCameraData
+---@param distance number
+---@return number
+function this.ComputeFittingScale(self, bounds, cameraData, distance)
+    local fovX = cameraData.fov
+    local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
+    local tan = math.tan(math.rad(fovX) * 0.5)
+    local width = tan * distance
+    local height = width * aspectRatio
+    -- conservative
+    local screenSize = math.min(width, height)
+    local size = bounds.max - bounds.min
+    local boundsSize = math.max(size.x, size.y, size.z, math.fepsilon)
+    local scale = screenSize / boundsSize
+
+    -- diagonal
+    -- boundsSize = size:length() -- 3d or dominant 2d
+    -- screenSize = math.sqrt(width * width + height * height)
+
+    self.logger:trace("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
+        cameraData.fov)                                                                                                        -- or world fov?
+    self.logger:trace("viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
+    self.logger:trace("distant width: %f, height: %f", width, height)
+    self.logger:debug("fitting scale: %f", scale)
+    return scale
 end
 
 ---@param self Inspector
@@ -254,107 +324,78 @@ function this.Activate(self, params)
         return
     end
 
-    if target then
-        self.angularVelocity = tes3vector3.new(0, 0, 0)
+
+    local distance = params.offset
 
 
+    local mesh = target.mesh
+    local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
-        local node = target.sceneNode
+    local another = false
+    if another then
+        if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
+            ---@cast target tes3armor|tes3clothing
+            if tes3.player and tes3.player.object and target.parts then
+                local female = tes3.player.object.female
 
-        local mesh = target.mesh
-        node = tes3.loadMesh(mesh, false) --:clone() -- false if modified?
-
-        if tes3.player then
-            -- hmm...?
-            -- local part = tes3.player.bodyPartManager:getActiveBodyPartForItem(target)
-            -- if part and part.node then
-            --     node = part.node
-            --     --node = tes3.loadMesh(part.bodyPart.mesh, false)
-            -- end
+                local parts = target.parts
+                for index, ware in ipairs(parts) do
+                    -- target.isLeftPart
+                    -- Mara's shirt is wired
+                    local part = ware.male
+                    if female and ware.female then
+                        part = ware.female
+                    end
+                    if part then
+                        -- TODO need attachment transform
+                        local partModel = tes3.loadMesh(part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+                        model:attachChild(partModel)
+                    end
+                end
+            end
         end
-
-        if not node then
-            self.logger:debug("no node")
-            return
+        if target.objectType == tes3.objectType.weapon then
+            local isSheathMesh = false
+            local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
+            if tes3.getFileExists("meshes\\" .. sheathMesh) then
+                mesh = sheathMesh
+                isSheathMesh = true
+                model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+            end
         end
-        self.logger:debug("node.name: %s", node.name)
-        self.logger:debug("node.scale: %f", node.scale)
+    end
 
-        local asset = node
+    local bounds = model:createBoundingBox()
 
-        local parent = niNode.new()
-        self.offset = niNode.new()
-        self.offset:attachChild(node)
-        parent:attachChild(self.offset)
-        node = parent
+    -- same? i think. unscaled size
+    -- not load yet
+    local offset = (bounds.max + bounds.min) * -0.5
+    self.logger:debug(tostring(bounds.max))
+    self.logger:debug(tostring(bounds.min))
+    self.logger:debug(tostring(offset))
+    local root, pivot = SetupNode(distance)
+    pivot.translation = offset
+    pivot:attachChild(model)
 
-        do --add properties
-            ---@diagnostic disable-next-line: undefined-field
-            local vertexColorProperty = niVertexColorProperty.new()
-            vertexColorProperty.name = "vcol yo"
-            vertexColorProperty.source = 2
-            --node:attachProperty(vertexColorProperty)
-
-            ---@diagnostic disable-next-line: undefined-global
-            local zBufferProperty = niZBufferProperty.new()
-            zBufferProperty.name = "zbuf yo"
-            -- depth test, depth write?
-            zBufferProperty:setFlag(true, 0)
-            zBufferProperty:setFlag(true, 1)
-            node:attachProperty(zBufferProperty)
+    local findKey = function(o)
+        for key, value in pairs(tes3.objectType) do
+            if o == value then
+                return key
+            end
         end
-
-        -- it seems to useful dummy camera space node
-        -- not cloned data
-        local pos = node.translation
-        local offset = tes3vector3.new(0, params.offset, 0)
-        node.translation = pos + offset
-
-        node.appCulled = false
-        node:update()
-        node:updateEffects()
-
-
-        -- FPV
-        local camera = tes3.worldController.armCamera
-        --camera = tes3.worldController.worldCamera
-        local cameraRoot = camera.cameraRoot
-        local cameraData = camera.cameraData
-        local fovX = cameraData.fov                  -- horizontal degree
-        self.logger:debug("fov: %f", cameraData.fov) -- or world fov?
-        self.logger:debug("near: %f", cameraData.nearPlaneDistance)
-        self.logger:debug("far: %f", cameraData.farPlaneDistance)
-        self.logger:debug("viewportWidth: %f", cameraData.viewportWidth)
-        self.logger:debug("viewportHeight: %f", cameraData.viewportHeight)
-        local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
-
-        local tan = math.tan(math.rad(fovX) * 0.5)
-        self.logger:debug("tan: %f", tan)
-        local width = tan * offset.y
-        local height = width * aspectRatio
-        self.logger:debug("width : %f", width)
-        self.logger:debug("height : %f", height)
-        local screenSize = math.min(width, height)
-
-        local bounds = node:createBoundingBox()
-
-        -- same? i think. unscaled size
-        -- not load yet
-        local offset = (bounds.max + bounds.min) * -0.5
-        self.logger:debug(tostring(bounds.max))
-        self.logger:debug(tostring(bounds.min))
-        self.logger:debug(tostring(offset))
-        self.offset.translation = offset
-
+        return ""
+    end
+    self.logger:info("objectType: %s", findKey(target.objectType))
+    local orientation = GetOrientation(target)
+    if orientation then
+        local rot = tes3matrix33.new()
+        rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
+        root.rotation = root.rotation * rot:copy()
+    else
+        -- auto rotation
+        -- dominant axis based
         local size = bounds.max - bounds.min
         self.logger:debug("bounds size: %f, %f, %f", size.x, size.y, size.z)
-        local boundsSize = math.max(size.x, size.y, size.z) -- avoid zero
-
-        -- diagonal
-        -- boundsSize = size:length() -- 3d or dominant 2d
-        -- screenSize = math.sqrt(width * width + height * height)
-
-        -- dominant face and axis
         local my = 0
         if size.x < size.y and size.z < size.y then
             my = 1
@@ -364,98 +405,97 @@ function this.Activate(self, params)
             mz = 2
         end
         local imax = my + mz;
-        self.logger:debug("axis %d", imax)
-
-        -- TODO target.objectType
-        -- tes3vector3() radian
-
-        -- almost item y-up
-
-
-        local findKey = function(o)
-            for key, value in pairs(tes3.objectType) do
-                if o == value then
-                    return key
-                end
-            end
-            return ""
+        my = 0
+        if size.x > size.y and size.z > size.y then
+            my = 1
         end
-        self.logger:info("objectType: %s", findKey(target.objectType))
-        local orientation = GetOrientation(target)
-        if orientation then
+        mz = 0
+        if size.x > size.z and size.y > size.z then
+            mz = 2
+        end
+        local imin = my + mz;
+        self.logger:debug("axis %d, %d", imax, imin)
+
+        -- depth is maximum or height is minimum, y-up
+        -- it seems that area ratio would be a better result.
+        if imax == 1 or imin == 2 then
+            local orientation = tes3vector3.new(-90, 0, 0)
             local rot = tes3matrix33.new()
             rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
-            node.rotation = node.rotation * rot:copy()
-        else
-            -- auto fitting
+            root.rotation = root.rotation * rot:copy()
         end
-
-        -- consider distance to near place
-
-        local scale = screenSize / boundsSize
-        self.logger:info("fitting scale: %f", scale)
-        node.scale = scale
-
-
-        for n in traverseRoots(node.children) do
-            --Kill particles
-            --n:isInstanceOfType(ni.type.NiParticles)
-            if n:isInstanceOfType(ni.type.NiParticles) then
-                --self.logger:debug("particle")
-                --n.parent:detachChild(n)
-                --n.scale = n.scale / scale
-                ---@cast n niParticles
-                --self.logger:debug(tostring(n.controller.active))
-                -- n.controller.animTimingType=1
-                -- n.controller:start(1)
-            end
-        end
-
-        node:updateEffects()
-        node:update()
-
-        self.baseScale = scale
-        self.zoomStart = 1
-        self.zoomEnd = 1
-        self.zoomTime = zoomDuration
-
-        cameraRoot:attachChild(node)
-        cameraRoot:update()
-        cameraRoot:updateEffects()
-
-        self.node = node
-
-        self.enterFrame = function(e)
-            self:OnEnterFrame(e)
-        end
-        event.register(tes3.event.enterFrame, self.enterFrame)
-        event.register(tes3.event.activate, OnActivate)
     end
+
+
+    -- FPV
+    local camera = tes3.worldController.armCamera
+    --camera = tes3.worldController.worldCamera
+    local cameraRoot = camera.cameraRoot
+    local cameraData = camera.cameraData
+
+    local scale = self:ComputeFittingScale(bounds, cameraData, distance)
+    root.scale = scale
+
+
+    -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
+    -- Apply the scale of counterparts
+    -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
+    -- Mace of Aevar Stone-Singer
+    foreach(model, function(node)
+        if node:isInstanceOfType(ni.type.NiParticles) then
+            ---@cast node niParticles
+            -- Does the size increase or decrease, or does the value change?
+            for index, value in ipairs(node.data.sizes) do
+                node.data.sizes[index] = value / scale
+            end
+            node.data:markAsChanged()
+            node.data:updateModelBound()
+        end
+    end)
+
+    self.angularVelocity = tes3vector3.new(0, 0, 0)
+    self.baseScale = scale
+    self.zoomStart = 1
+    self.zoomEnd = 1
+    self.zoomTime = zoomDuration
+
+    cameraRoot:attachChild(root)
+    cameraRoot:update()
+    cameraRoot:updateEffects()
+
+    self.root = root
+    self.pivot = pivot
+
+    self.enterFrame = function(e)
+        self:OnEnterFrame(e)
+    end
+    event.register(tes3.event.enterFrame, self.enterFrame)
+    event.register(tes3.event.activate, OnActivate)
 end
 
 ---@param self Inspector
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
-    if self.node then
+    if self.root then
         if tes3.worldController and tes3.worldController.armCamera then
             local camera = tes3.worldController.armCamera
             local cameraRoot = camera.cameraRoot
-            cameraRoot:detachChild(self.node)
+            cameraRoot:detachChild(self.root)
         end
 
         event.unregister(tes3.event.enterFrame, self.enterFrame)
         event.unregister(tes3.event.activate, OnActivate)
         self.enterFrame = nil
 
-        self.offset = nil
-        self.node = nil
+        self.pivot = nil
+        self.root = nil
     end
 end
 
 ---@param self Inspector
 function this.Reset(self)
-    self.offset = nil
-    self.node = nil
+    self.pivot = nil
+    self.root = nil
 end
 
 return this
