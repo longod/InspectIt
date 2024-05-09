@@ -5,7 +5,10 @@ local config = require("InspectItem.config")
 ---@field menu tes3uiElement?
 ---@field instruction tes3uiElement?
 ---@field nameLabel tes3uiElement?
----@field keybindLabel tes3uiElement?
+---@field returnKeybindLabel tes3uiElement?
+---@field anotherLook tes3uiElement?
+---@field anotherLookKeybindLabel tes3uiElement?
+---@field resetPoseKeybindLabel tes3uiElement?
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -61,7 +64,9 @@ function this.Activate(self, params)
         self.menu.visible = true
         self.instruction.visible = config.display.instruction
         self.nameLabel.text = params.target.name
-        self.keybindLabel.text = ": " .. GetComboString(config.input.keybind)
+        self.returnKeybindLabel.text = ": " .. GetComboString(config.input.inspect)
+        self.anotherLookKeybindLabel.text = ": " .. GetComboString(config.input.another)
+        self.resetPoseKeybindLabel.text = ": " .. GetComboString(config.input.reset)
         self.menu:updateLayout()
         return
     end
@@ -99,19 +104,53 @@ function this.Activate(self, params)
     block:createDivider().widthProportional = 1.0
     block:createLabel({ text = settings.i18n("guide.rotate.text") })
     block:createLabel({ text = settings.i18n("guide.zoom.text") })
-    -- reset
-    local row = block:createBlock()
-    row.flowDirection = tes3.flowDirection.leftToRight
-    row.autoWidth = true
-    row.autoHeight = true
-    row.childAlignY = 0.5
-    row.paddingTop = 2
-    local button = row:createButton({ id = settings.returnButtonName, text = settings.i18n("guide.return.text") })
-    button:register(tes3.uiEvent.mouseClick, function(e)
-        event.trigger(settings.returnEventName)
-    end)
-    self.keybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.keybind) })
+    -- another/activate
+    do
+        local row = block:createBlock()
+        row.flowDirection = tes3.flowDirection.leftToRight
+        row.autoWidth = true
+        row.autoHeight = true
+        row.childAlignY = 0.5
+        row.paddingTop = 2
+        local button = row:createButton({ text = settings.i18n("guide.another.text") })
+        button:register(tes3.uiEvent.mouseClick, function(e)
+            event.trigger(settings.switchAnotherLookEventName)
 
+        end)
+        self.anotherLookKeybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.another) })
+        self.anotherLook = row
+        -- get enabled
+    end
+
+    -- reset
+    do
+        local row = block:createBlock()
+        row.flowDirection = tes3.flowDirection.leftToRight
+        row.autoWidth = true
+        row.autoHeight = true
+        row.childAlignY = 0.5
+        row.paddingTop = 2
+        local button = row:createButton({ text = settings.i18n("guide.reset.text") })
+        button:register(tes3.uiEvent.mouseClick, function(e)
+            event.trigger(settings.resetPoseEventName)
+        end)
+        self.resetPoseKeybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.reset) })
+    end
+
+    -- return
+    do
+        local row = block:createBlock()
+        row.flowDirection = tes3.flowDirection.leftToRight
+        row.autoWidth = true
+        row.autoHeight = true
+        row.childAlignY = 0.5
+        row.paddingTop = 2
+        local button = row:createButton({ id = settings.returnButtonName, text = settings.i18n("guide.return.text") })
+        button:register(tes3.uiEvent.mouseClick, function(e)
+            event.trigger(settings.returnEventName)
+        end)
+        self.returnKeybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.inspect) })
+    end
     if not config.display.instruction then
         self.instruction.visible = false
     end
@@ -135,7 +174,10 @@ function this.Reset(self)
     end
     self.instruction = nil
     self.nameLabel = nil
-    self.keybindLabel = nil
+    self.returnKeybindLabel = nil
+    self.anotherLook = nil
+    self.anotherLookKeybindLabel = nil
+    self.resetPoseKeybindLabel = nil
 end
 
 return this

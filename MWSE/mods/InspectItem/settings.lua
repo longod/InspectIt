@@ -4,16 +4,38 @@ this.configPath = "InspectItem"
 this.menuName = "InspectItem:MenuInspection"
 this.returnButtonName = "InspectItem:ReturnButton"
 this.returnEventName = "InspectItem:ReturnEvent"
+this.switchAnotherLookEventName = "InspectItem:SwitchAnotherLookEvent"
+this.resetPoseEventName = "InspectItem:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectItem")
+
+---@enum AnotherLookType
+this.anotherLookType = {
+    BodyParts = 1,
+    WeaponSheathing = 2,
+}
 
 ---@class Config
 local defaultConfig = {
     input = {
         ---@type mwseKeyCombo
-        keybind = {
+        inspect = {
             keyCode = tes3.scanCode.e --[[@as tes3.scanCode]],
             isShiftDown = false,
             isAltDown = true,
+            isControlDown = false,
+        },
+        ---@type mwseKeyCombo
+        another = {
+            keyCode = tes3.scanCode.a --[[@as tes3.scanCode]],
+            isShiftDown = false,
+            isAltDown = false,
+            isControlDown = false,
+        },
+        ---@type mwseKeyCombo
+        reset = {
+            keyCode = tes3.scanCode.r --[[@as tes3.scanCode]],
+            isShiftDown = false,
+            isAltDown = false,
             isControlDown = false,
         },
         sensitivityX = 1,

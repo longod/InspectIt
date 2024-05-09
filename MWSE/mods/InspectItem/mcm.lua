@@ -19,10 +19,30 @@ local function OnModConfigReady(e)
             description = settings.i18n("mcm.input.category.description"),
         })
         input:createKeyBinder({
-            label = settings.i18n("mcm.input.category.label"),
-            description = settings.i18n("mcm.input.category.description"),
+            label = settings.i18n("mcm.input.inspect.label"),
+            description = settings.i18n("mcm.input.inspect.description"),
             variable = mwse.mcm.createTableVariable({
-                id = "keybind",
+                id = "inspect",
+                table = config.input,
+            }),
+            allowCombinations = true,
+            allowMouse = false,
+        })
+        input:createKeyBinder({
+            label = settings.i18n("mcm.input.another.label"),
+            description = settings.i18n("mcm.input.another.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "another",
+                table = config.input,
+            }),
+            allowCombinations = true,
+            allowMouse = false,
+        })
+        input:createKeyBinder({
+            label = settings.i18n("mcm.input.reset.label"),
+            description = settings.i18n("mcm.input.reset.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "reset",
                 table = config.input,
             }),
             allowCombinations = true,

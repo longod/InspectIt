@@ -1,5 +1,6 @@
 local base = require("InspectItem.controller.base")
 local config = require("InspectItem.config").input
+local settings = require("InspectItem.settings")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
@@ -63,7 +64,7 @@ local function GetOrientation(object)
         [tes3.objectType.weapon] = tes3vector3.new(-90, 0, 0),
     }
 
-    -- weapon, throwing
+    -- TODO weapon, throwing
 
     if object.objectType == tes3.objectType.armor then
         ---@cast object tes3armor
@@ -84,8 +85,12 @@ end
 ---@class Inspector : IController
 ---@field root niNode?
 ---@field pivot niNode?
----@field enterFrame fun(e : enterFrameEventData)?
+---@field enterFrameCallback fun(e : enterFrameEventData)?
+---@field activateCallback fun(e : activateEventData)?
+---@field switchAnotherLookCallback fun()?
+---@field resetPosecCallback fun()?
 ---@field angularVelocity tes3vector3 -- vec2 doesnt have dot
+---@field baseRotation tes3matrix33
 ---@field baseScale number
 ---@field zoomStart number
 ---@field zoomEnd number
@@ -99,6 +104,7 @@ local defaults = {
     pivot = nil,
     enterFrame = nil,
     angularVelocity = tes3vector3.new(0, 0, 0),
+    baseRotation = tes3matrix33.new(),
     baseScale = 1,
     zoomStart = 1,
     zoomEnd = 1,
@@ -161,7 +167,31 @@ local function Ease(ratio, estart, eend)
     return v
 end
 
--- local updateTime = 0
+---@param self Inspector
+---@param scale number
+function this.SetScale(self, scale)
+    local prev = self.root.scale
+    local newScale = math.max(self.baseScale * scale, math.fepsilon)
+    self.root.scale = newScale
+    self.logger:trace("zoom %f from %f", scale, prev)
+
+    -- rescale particle
+    -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
+    -- Apply the scale of counterparts
+    -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
+    -- Mace of Aevar Stone-Singer
+    -- This requires setting the trailer to 0 in niParticleSystemController , which cannot be changed from MWSE.
+    foreach(self.pivot, function(node)
+        if node:isInstanceOfType(ni.type.NiParticles) then
+            ---@cast node niParticles
+            for index, value in ipairs(node.data.sizes) do
+                node.data.sizes[index] = value * (prev / newScale)
+            end
+            node.data:markAsChanged()
+            node.data:updateModelBound() -- need?
+        end
+    end)
+end
 
 ---@param self Inspector
 ---@param e enterFrameEventData
@@ -186,27 +216,14 @@ function this.OnEnterFrame(self, e)
             self.zoomStart = scale
             self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, 2)
             self.zoomTime = 0
-            -- TODO consider distance to near place
+            -- TODO consider distance to near place on actiavtion
         end
 
         if self.zoomTime < zoomDuration then
             self.zoomTime = math.min(self.zoomTime + e.delta, zoomDuration)
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
-            local prev = self.root.scale
-            self.root.scale = self.baseScale * scale
-            self.logger:trace("zoom %f from %f", scale, prev)
 
-            -- rescale particle
-            foreach(self.pivot, function(node)
-                if node:isInstanceOfType(ni.type.NiParticles) then
-                    ---@cast node niParticles
-                    for index, value in ipairs(node.data.sizes) do
-                        node.data.sizes[index] = value * (prev / self.root.scale)
-                    end
-                    node.data:markAsChanged()
-                    node.data:updateModelBound()
-                end
-            end)
+            self:SetScale(scale)
         end
 
         if ic:isMouseButtonDown(0) then
@@ -252,17 +269,37 @@ function this.OnEnterFrame(self, e)
         -- local euler = self.root.rotation:toEulerXYZ():copy()
         -- tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
 
-
         -- updateTime = updateTime  + e.delta
         self.root:update({ controllers = true })
         self.root:updateEffects()
     end
 end
 
+---@param self Inspector
 --- @param e activateEventData
-local function OnActivate(e)
+function this.OnActivate(self, e)
     -- block picking up items
+    self.logger:debug("Block activation")
     e.block = true
+end
+
+function this.SwitchAnotherLook(self)
+    self.logger:info("Switch AnotherLook")
+end
+
+function this.ResetPose(self)
+    self.logger:info("Reset Pose")
+    if self.root then
+        self.angularVelocity = tes3vector3.new(0, 0, 0)
+        self.zoomStart = 1
+        self.zoomEnd = 1
+        self.zoomTime = zoomDuration
+
+        self.root.rotation = self.baseRotation:copy()
+
+        local scale = 1
+        self:SetScale(1)
+    end
 end
 
 ---@param offset number
@@ -270,17 +307,22 @@ end
 ---@return niNode
 local function SetupNode(offset)
     local pivot = niNode.new() -- pivot node
-    pivot.name = "InspectItem:pivot"
+    pivot.name = "InspectItem:Pivot"
+    -- If transparency is included, it may not work unless it is specified on a per material.
     local zBufferProperty = niZBufferProperty.new()
-    zBufferProperty.name = "zbuf yo"
-    -- depth test, depth write?
-    zBufferProperty:setFlag(true, 0)
-    zBufferProperty:setFlag(true, 1)
+    zBufferProperty.name = "InspectItem:DepthTestWrite"
+    zBufferProperty:setFlag(true, 0) -- test
+    zBufferProperty:setFlag(true, 1) -- write
     pivot:attachProperty(zBufferProperty)
+    -- No culling on the back face because the geometry of the part to be placed on the ground does not exist.
+    local stencilProperty = niStencilProperty.new()
+    zBufferProperty.name = "InspectItem:NoCull"
+    stencilProperty.drawMode = 3 -- DRAW_BOTH
+    pivot:attachProperty(stencilProperty)
     pivot.appCulled = false
 
     local root = niNode.new()
-    root.name = "InspectItem:root"
+    root.name = "InspectItem:Root"
     root:attachChild(pivot)
     root.translation = tes3vector3.new(0, offset, 0)
     root.appCulled = false
@@ -367,8 +409,48 @@ function this.Activate(self, params)
 
     local bounds = model:createBoundingBox()
 
-    -- same? i think. unscaled size
-    -- not load yet
+    -- not recompute
+    --[[
+    local boundsmodel = model:clone()
+    foreach(boundsmodel, function(node)
+        if node:isInstanceOfType(ni.type.NiParticles) then
+            node.parent:detachChild(node)
+        end
+        if node:isInstanceOfType(ni.type.NiLight) then
+            node.parent:detachChild(node)
+        end
+    end)
+    boundsmodel:updateEffects()
+    boundsmodel:update()
+    bounds = boundsmodel:createBoundingBox()
+    --]]
+
+    -- create only mesh bounds
+    -- TODO propagete scaling
+    -- zero..
+    --[[
+    bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
+    bounds.min = tes3vector3.new(math.fhuge,math.fhuge,math.fhuge)
+    foreach(model, function(node)
+        if node:isInstanceOfType(ni.type.NiParticles) then
+            return
+        end
+        if node:isInstanceOfType(ni.type.NiTriBasedGeom) then
+            ---@cast node niTriBasedGeometry
+            local origin = node.worldBoundOrigin
+            local radius = node.worldBoundRadius
+            bounds.max.x = math.max(bounds.max.x, origin.x + radius);
+            bounds.max.y = math.max(bounds.max.y, origin.y + radius);
+            bounds.max.z = math.max(bounds.max.z, origin.z + radius);
+            bounds.min.x = math.min(bounds.min.x, origin.x - radius);
+            bounds.min.y = math.min(bounds.min.y, origin.y - radius);
+            bounds.min.z = math.min(bounds.min.z, origin.z - radius);
+            self.logger:debug(tostring(origin) .. " " .. tostring(radius));
+        end
+    end)
+    --]]
+
+    -- centering
     local offset = (bounds.max + bounds.min) * -0.5
     self.logger:debug(tostring(bounds.max))
     self.logger:debug(tostring(bounds.min))
@@ -377,6 +459,7 @@ function this.Activate(self, params)
     pivot.translation = offset
     pivot:attachChild(model)
 
+    -- initial rotation
     local findKey = function(o)
         for key, value in pairs(tes3.objectType) do
             if o == value then
@@ -426,51 +509,48 @@ function this.Activate(self, params)
         end
     end
 
+    self.root = root
+    self.pivot = pivot
 
-    -- FPV
+    -- initial scaling
     local camera = tes3.worldController.armCamera
-    --camera = tes3.worldController.worldCamera
     local cameraRoot = camera.cameraRoot
     local cameraData = camera.cameraData
-
     local scale = self:ComputeFittingScale(bounds, cameraData, distance)
-    root.scale = scale
 
-
-    -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
-    -- Apply the scale of counterparts
-    -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
-    -- Mace of Aevar Stone-Singer
-    foreach(model, function(node)
-        if node:isInstanceOfType(ni.type.NiParticles) then
-            ---@cast node niParticles
-            -- Does the size increase or decrease, or does the value change?
-            for index, value in ipairs(node.data.sizes) do
-                node.data.sizes[index] = value / scale
-            end
-            node.data:markAsChanged()
-            node.data:updateModelBound()
-        end
-    end)
+    self.baseScale = root.scale
+    self:SetScale(scale)
 
     self.angularVelocity = tes3vector3.new(0, 0, 0)
+    self.baseRotation = root.rotation:copy()
     self.baseScale = scale
     self.zoomStart = 1
     self.zoomEnd = 1
     self.zoomTime = zoomDuration
 
+
     cameraRoot:attachChild(root)
     cameraRoot:update()
     cameraRoot:updateEffects()
 
-    self.root = root
-    self.pivot = pivot
-
-    self.enterFrame = function(e)
+    --- subscribe events
+    self.enterFrameCallback = function(e)
         self:OnEnterFrame(e)
     end
-    event.register(tes3.event.enterFrame, self.enterFrame)
-    event.register(tes3.event.activate, OnActivate)
+    self.activateCallback = function(e)
+        self:OnActivate(e)
+    end
+    self.switchAnotherLookCallback = function()
+        self:SwitchAnotherLook()
+    end
+    self.resetPosecCallback = function()
+        self:ResetPose()
+    end
+    event.register(tes3.event.enterFrame, self.enterFrameCallback)
+    event.register(tes3.event.activate, self.activateCallback)
+    event.register(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
+    event.register(settings.resetPoseEventName, self.resetPosecCallback)
+
 end
 
 ---@param self Inspector
@@ -483,9 +563,14 @@ function this.Deactivate(self, params)
             cameraRoot:detachChild(self.root)
         end
 
-        event.unregister(tes3.event.enterFrame, self.enterFrame)
-        event.unregister(tes3.event.activate, OnActivate)
-        self.enterFrame = nil
+        event.unregister(tes3.event.enterFrame, self.enterFrameCallback)
+        event.unregister(tes3.event.activate, self.activateCallback)
+        event.unregister(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
+        event.unregister(settings.resetPoseEventName, self.resetPosecCallback)
+        self.enterFrameCallback = nil
+        self.activateCallback = nil
+        self.switchAnotherLookCallback = nil
+        self.resetPosecCallback = nil
 
         self.pivot = nil
         self.root = nil
