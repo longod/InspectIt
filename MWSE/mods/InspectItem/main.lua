@@ -38,7 +38,7 @@ end
 
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
- ---@return BodyPartsData[]|WeaponSheathingData? data
+ ---@return BodyPartsData|WeaponSheathingData? data
 local function HasAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         ---@cast target tes3armor|tes3clothing
@@ -54,24 +54,49 @@ local function HasAnotherLook(target)
                     part = ware.female
                 end
                 if part then
+                    logger:debug(ware.type)
+                    logger:debug(part.part)
+                    logger:debug(part.partType)
+                    logger:debug(part.mesh)
+                    logger:debug(part.sceneNode)
+                    local bp = tes3.player.bodyPartManager:getActiveBodyPartForItem(target)
+                    -- logger:debug(part.sceneNode)
+                    -- logger:debug(bp.node)
+                    --logger:debug(bp.bodyPart.sceneNode)
+
+                    -- animated?
+                    local active = tes3.player.bodyPartManager:getActiveBodyPart(part.partType, ware.type)
+                    logger:debug(active.node)
+                    --logger:debug(active.bodyPart)
+                    --logger:debug(active.bodyPart.sceneNode)
+
+
                     table.insert(bodyParts, { type = ware.type, part = part })
                 end
             end
             if table.size(bodyParts) ~= 0 then
-                return settings.anotherLookType.BodyParts, bodyParts
+                local data = { parts = bodyParts } ---@type BodyPartsData
+                return settings.anotherLookType.BodyParts, data
             end
         end
     end
     if target.objectType == tes3.objectType.weapon then
         local mesh = target.mesh
-        local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
-        if tes3.getFileExists("meshes\\" .. sheathMesh) then
-            local data = { path = sheathMesh } ---@type WeaponSheathingData
-            return settings.anotherLookType.WeaponSheathing, data
+        if mesh then
+            local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
+            if tes3.getFileExists("meshes\\" .. sheathMesh) then
+                logger:info("Find WeaponSheathing mesh: %s", sheathMesh)
+                local data = { path = sheathMesh } ---@type WeaponSheathingData
+                return settings.anotherLookType.WeaponSheathing, data
+            end
         end
     end
     if target.objectType == tes3.objectType.book then
-        -- open
+        logger:info("Find book %d: %s", target.type, target.name)
+        ---@cast target tes3book
+        -- check owner?
+        local data = { type = target.type, text = target.text }
+        return settings.anotherLookType.Book, data
     end
     return nil, nil
 end

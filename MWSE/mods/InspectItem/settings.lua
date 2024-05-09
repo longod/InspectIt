@@ -12,6 +12,7 @@ this.i18n = mwse.loadTranslations("InspectItem")
 this.anotherLookType = {
     BodyParts = 1,
     WeaponSheathing = 2,
+    Book = 3,
 }
 
 ---@class Config

@@ -302,7 +302,7 @@ function this.SwitchAnotherLook(self)
         if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
 
             if not self.another then
-                local data = self.anotherData.data ---@type WeaponSheathingData
+                local data = self.anotherData.data ---@cast data WeaponSheathingData
                 self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
                 if not self.another  then
                     self.logger:error("failed to load %s", data.path)
@@ -328,7 +328,17 @@ function this.SwitchAnotherLook(self)
         end
 
 
+        if self.anotherData.type == settings.anotherLookType.Book then
+            if self.anotherData.data.type == tes3.bookType.book then
+                tes3ui.showBookMenu(self.anotherData.data.text)
+            elseif self.anotherData.data.type == tes3.bookType.scroll then
+                tes3ui.showScrollMenu(self.anotherData.data.text)
+            end
+            -- TODO hide mesh or freeze control
+            -- TODO needs opend flag for some quest
+        end
     end
+
 end
 
 function this.ResetPose(self)
@@ -409,39 +419,25 @@ function this.Activate(self, params)
     if not target then
         return
     end
-
-    self.anotherData = params.another
-
-    local distance = params.offset
-
-
     local mesh = target.mesh
+    if not tes3.getFileExists(string.format("Meshes\\%s", mesh)) then
+        self.logger:error("Not exist mesh: %s", mesh)
+        return
+    end
+
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
-    local another = false
-    if another then
-        if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
-            ---@cast target tes3armor|tes3clothing
-            if tes3.player and tes3.player.object and target.parts then
-                local female = tes3.player.object.female
-
-                local parts = target.parts
-                for index, ware in ipairs(parts) do
-                    -- target.isLeftPart
-                    -- Mara's shirt is wired
-                    local part = ware.male
-                    if female and ware.female then
-                        part = ware.female
-                    end
-                    if part then
-                        -- TODO need attachment transform
-                        local partModel = tes3.loadMesh(part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-                        model:attachChild(partModel)
-                    end
-                end
-            end
-        end
-    end
+    --local parts = params.another.data.parts
+    -- for index, bodyPart in ipairs(params.another.data.parts) do
+    --     local active = tes3.player.bodyPartManager:getActiveBodyPart(bodyPart.part.partType, bodyPart.type)
+    --     local partModel = tes3.loadMesh(bodyPart.part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    --     if active.node then
+    --         partModel.worldTransform = active.node.worldTransform:copy()
+    --     else
+    --         -- root?
+    --     end
+    --     model:attachChild(partModel)
+    -- end
 
     local bounds = model:createBoundingBox()
 
@@ -464,6 +460,7 @@ function this.Activate(self, params)
     -- create only mesh bounds
     -- TODO propagete scaling
     -- zero..
+    -- trishape?
     --[[
     bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
     bounds.min = tes3vector3.new(math.fhuge,math.fhuge,math.fhuge)
@@ -485,6 +482,11 @@ function this.Activate(self, params)
         end
     end)
     --]]
+
+
+    self.anotherData = params.another
+
+    local distance = params.offset
 
     -- centering
     local offset = (bounds.max + bounds.min) * -0.5
