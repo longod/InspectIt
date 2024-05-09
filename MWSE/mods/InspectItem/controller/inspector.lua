@@ -95,6 +95,10 @@ end
 ---@field zoomStart number
 ---@field zoomEnd number
 ---@field zoomTime number
+---@field original niNode?
+---@field another niNode?
+---@field anotherData? AnotherLookData
+---@field anotherLook boolean
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -109,6 +113,10 @@ local defaults = {
     zoomStart = 1,
     zoomEnd = 1,
     zoomTime = 0,
+    original = nil,
+    another = nil,
+    anotherData = nil,
+    anotherLook = false,
 }
 
 ---@return Inspector
@@ -285,6 +293,42 @@ end
 
 function this.SwitchAnotherLook(self)
     self.logger:info("Switch AnotherLook")
+    if self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
+
+        if self.anotherData.type == settings.anotherLookType.BodyParts then
+
+        end
+
+        if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
+
+            if not self.another then
+                local data = self.anotherData.data ---@type WeaponSheathingData
+                self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+                if not self.another  then
+                    self.logger:error("failed to load %s", data.path)
+                    return
+                end
+            end
+
+            if self.anotherLook then
+                self.pivot:detachChild(self.another)
+                self.pivot:attachChild(self.original)
+            else
+                self.pivot:detachChild(self.original)
+                self.pivot:attachChild(self.another)
+            end
+            self.anotherLook = not self.anotherLook
+
+            -- TODO self.SetScale() for particle
+            -- just swap, no adjust centering
+            self.pivot:update()
+            self.pivot:updateEffects()
+
+            -- TODO weapon sound
+        end
+
+
+    end
 end
 
 function this.ResetPose(self)
@@ -366,6 +410,7 @@ function this.Activate(self, params)
         return
     end
 
+    self.anotherData = params.another
 
     local distance = params.offset
 
@@ -394,15 +439,6 @@ function this.Activate(self, params)
                         model:attachChild(partModel)
                     end
                 end
-            end
-        end
-        if target.objectType == tes3.objectType.weapon then
-            local isSheathMesh = false
-            local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
-            if tes3.getFileExists("meshes\\" .. sheathMesh) then
-                mesh = sheathMesh
-                isSheathMesh = true
-                model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
             end
         end
     end
@@ -511,6 +547,9 @@ function this.Activate(self, params)
 
     self.root = root
     self.pivot = pivot
+    self.original = model
+    self.another = nil
+    self.anotherLook = false
 
     -- initial scaling
     local camera = tes3.worldController.armCamera
@@ -574,6 +613,9 @@ function this.Deactivate(self, params)
 
         self.pivot = nil
         self.root = nil
+        self.original = nil
+        self.another = nil
+        self.anotherData = nil
     end
 end
 
@@ -581,6 +623,9 @@ end
 function this.Reset(self)
     self.pivot = nil
     self.root = nil
+    self.original = nil
+    self.another = nil
+    self.anotherData = nil
 end
 
 return this

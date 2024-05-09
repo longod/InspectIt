@@ -65,6 +65,7 @@ function this.Activate(self, params)
         self.instruction.visible = config.display.instruction
         self.nameLabel.text = params.target.name
         self.returnKeybindLabel.text = ": " .. GetComboString(config.input.inspect)
+        self.anotherLook.visible = params.another.type ~= nil
         self.anotherLookKeybindLabel.text = ": " .. GetComboString(config.input.another)
         self.resetPoseKeybindLabel.text = ": " .. GetComboString(config.input.reset)
         self.menu:updateLayout()
@@ -78,8 +79,8 @@ function this.Activate(self, params)
     self.menu = menu
     menu:destroyChildren()
     menu.flowDirection = tes3.flowDirection.topToBottom
-    menu.absolutePosAlignX = 0.5
-    menu.absolutePosAlignY = 0.98
+    menu.absolutePosAlignX = 0.98
+    menu.absolutePosAlignY = 0.02
     menu.autoWidth = true
     menu.autoHeight = true
     menu.minWidth = 0 -- or tooltip size?
@@ -89,21 +90,24 @@ function this.Activate(self, params)
     border.flowDirection = tes3.flowDirection.topToBottom
     border.autoWidth = true
     border.autoHeight = true
-    border.paddingAllSides = 4
+    border.paddingAllSides = 8
     border.childAlignX = 0.5
     self.nameLabel = border:createLabel({ text = params.target.name })
+    self.nameLabel.borderAllSides = 4
     self.nameLabel.color = tes3ui.getPalette(tes3.palette.headerColor)
 
     -- if guided
     local block = border:createBlock()
     self.instruction = block
     block.flowDirection = tes3.flowDirection.topToBottom
+    block.widthProportional = 1.0
     block.autoWidth = true
     block.autoHeight = true
     block.childAlignX = 0.5
     block:createDivider().widthProportional = 1.0
-    block:createLabel({ text = settings.i18n("guide.rotate.text") })
-    block:createLabel({ text = settings.i18n("guide.zoom.text") })
+    block:createLabel({ text = settings.i18n("guide.rotate.text") }).borderAllSides = 2
+    block:createLabel({ text = settings.i18n("guide.zoom.text") }).borderAllSides = 2
+
     -- another/activate
     do
         local row = block:createBlock()
@@ -111,7 +115,7 @@ function this.Activate(self, params)
         row.autoWidth = true
         row.autoHeight = true
         row.childAlignY = 0.5
-        row.paddingTop = 2
+        row.paddingAllSides = 2
         local button = row:createButton({ text = settings.i18n("guide.another.text") })
         button:register(tes3.uiEvent.mouseClick, function(e)
             event.trigger(settings.switchAnotherLookEventName)
@@ -119,7 +123,7 @@ function this.Activate(self, params)
         end)
         self.anotherLookKeybindLabel = row:createLabel({ text = ": " .. GetComboString(config.input.another) })
         self.anotherLook = row
-        -- get enabled
+        self.anotherLook.visible = params.another.type ~= nil
     end
 
     -- reset
@@ -129,7 +133,7 @@ function this.Activate(self, params)
         row.autoWidth = true
         row.autoHeight = true
         row.childAlignY = 0.5
-        row.paddingTop = 2
+        row.paddingAllSides = 2
         local button = row:createButton({ text = settings.i18n("guide.reset.text") })
         button:register(tes3.uiEvent.mouseClick, function(e)
             event.trigger(settings.resetPoseEventName)
@@ -144,7 +148,7 @@ function this.Activate(self, params)
         row.autoWidth = true
         row.autoHeight = true
         row.childAlignY = 0.5
-        row.paddingTop = 2
+        row.paddingAllSides = 2
         local button = row:createButton({ id = settings.returnButtonName, text = settings.i18n("guide.return.text") })
         button:register(tes3.uiEvent.mouseClick, function(e)
             event.trigger(settings.returnEventName)

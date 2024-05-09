@@ -38,14 +38,14 @@ end
 
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
- ---@return table? path
+ ---@return BodyPartsData[]|WeaponSheathingData? data
 local function HasAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         ---@cast target tes3armor|tes3clothing
         if tes3.player and tes3.player.object and target.parts then
             local female = tes3.player.object.female
             local parts = target.parts
-            local bodyParts = {}
+            local bodyParts = {} ---@type BodyPartsData[]
             for index, ware in ipairs(parts) do
                 -- target.isLeftPart
                 -- Mara's shirt is wired
@@ -66,7 +66,8 @@ local function HasAnotherLook(target)
         local mesh = target.mesh
         local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
         if tes3.getFileExists("meshes\\" .. sheathMesh) then
-            return settings.anotherLookType.WeaponSheathing, { path = sheathMesh }
+            local data = { path = sheathMesh } ---@type WeaponSheathingData
+            return settings.anotherLookType.WeaponSheathing, data
         end
     end
     if target.objectType == tes3.objectType.book then
@@ -160,10 +161,10 @@ local function EnterInspection()
     end
     logger:info("Enter Inspection: %s", context.target.name)
 
-    local has, data = HasAnotherLook(context.target)
+    local another, data = HasAnotherLook(context.target)
 
     for _, controller in ipairs(controllers) do
-        controller:Activate({ target = context.target, offset = 20 })
+        controller:Activate({ target = context.target, offset = 20, another = { type = another, data = data } })
     end
     context.target = nil
     context.enable = true
@@ -221,9 +222,11 @@ local function OnKeyDown(e)
     end
     if context.enable then
         if TestInput(e, config.input.another) then
+            tes3.worldController.menuClickSound:play()
             event.trigger(settings.switchAnotherLookEventName)
         end
         if TestInput(e, config.input.reset) then
+            tes3.worldController.menuClickSound:play()
             event.trigger(settings.resetPoseEventName)
         end
     end
