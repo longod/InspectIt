@@ -16,8 +16,6 @@ local defaults = {
 local fx = "InspectItem/Bokeh"
 local disabledShaders = { "Depth of Field" }
 
--- TODO focal length sync node translation
-
 ---@return Bokeh
 function this.new()
     local instance = base.new(defaults)

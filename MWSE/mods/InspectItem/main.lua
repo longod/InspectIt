@@ -17,29 +17,92 @@ local controllers = {
 local context = {
     enable = false,
     target = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+    itemData = nil, ---@type tes3itemData?
 }
 
 ---@param e itemTileUpdatedEventData
 local function OnItemTileUpdated(e)
+    -- or just tooltip callback
     e.element:registerAfter(tes3.uiEvent.mouseOver,
         ---@param ev tes3uiEventData
         function(ev)
             context.target = e.item
+            context.itemData = e.itemData
         end)
     e.element:registerAfter(tes3.uiEvent.mouseLeave,
         ---@param ev tes3uiEventData
         function(ev)
             if context.target then
                 context.target = nil
+                context.itemData = nil
             end
         end)
 end
 
 
+---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
+---@param itemData tes3itemData?
+---@return string?
+local function FindTooltipsComplete(target, itemData)
+    local tooltipData = include("Tooltips Complete.data")
+    if not tooltipData then
+        return nil
+    end
+    local config = mwse.loadConfig("tooltipsComplete")
+    if not config then
+        return nil
+    end
+    local mcmMapping = {
+        { descriptionTable = tooltipData.keyTable,        mcm = "keyTooltips" },
+        { descriptionTable = tooltipData.questTable,      mcm = "questTooltips" },
+        { descriptionTable = tooltipData.uniqueTable,     mcm = "uniqueTooltips" },
+        { descriptionTable = tooltipData.artifactTable,   mcm = "artifactTooltips" },
+        { descriptionTable = tooltipData.armorTable,      mcm = "armorTooltips" },
+        { descriptionTable = tooltipData.weaponTable,     mcm = "weaponTooltips" },
+        { descriptionTable = tooltipData.toolTable,       mcm = "toolTooltips" },
+        { descriptionTable = tooltipData.miscTable,       mcm = "miscTooltips" },
+        { descriptionTable = tooltipData.bookTable,       mcm = "bookTooltips" },
+        { descriptionTable = tooltipData.clothingTable,   mcm = "clothingTooltips" },
+        { descriptionTable = tooltipData.soulgemTable,    mcm = "soulgemTooltips" },
+        { descriptionTable = tooltipData.lightTable,      mcm = "lightTooltips" },
+        { descriptionTable = tooltipData.potionTable,     mcm = "potionTooltips" },
+        { descriptionTable = tooltipData.ingredientTable, mcm = "ingredientTooltips" },
+        { descriptionTable = tooltipData.scrollTable,     mcm = "scrollTooltips" },
+    }
+    if config.menuOnly then
+        -- return nil
+    end
+
+    local file = target.sourceMod
+    if file and config.blocked[file:lower()] then
+        return
+    elseif config.blocked[target.id:lower()] then
+        return
+    end
+
+    for _, data in ipairs(mcmMapping) do
+        local description = data.descriptionTable[target.id:lower()]
+        if config[data.mcm] and description then
+            --soul gem item data
+            if (target.isSoulGem and itemData and itemData.soul) then
+                if config.blocked[itemData.soul.id:lower()] then
+                    return description
+                end
+                if (itemData.soul.id == nil) then
+                    return description
+                end
+                description = tooltipData.filledTable[itemData.soul.id:lower()] or ""
+            end
+            return description
+        end
+    end
+    return nil
+end
+
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
  ---@return BodyPartsData|WeaponSheathingData? data
-local function HasAnotherLook(target)
+local function FindAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         ---@cast target tes3armor|tes3clothing
         if tes3.player and tes3.player.object and target.parts then
@@ -92,13 +155,26 @@ local function HasAnotherLook(target)
         end
     end
     if target.objectType == tes3.objectType.book then
-        logger:info("Find book %d: %s", target.type, target.name)
         ---@cast target tes3book
-        -- check owner?
-        local data = { type = target.type, text = target.text }
-        return settings.anotherLookType.Book, data
+        -- Books with scripts are excluded because scripts are not executed when the book is opened.
+        if not target.script then
+            logger:info("Find book %d: %s", target.type, target.name)
+            -- check owner?
+            local data = { type = target.type, text = target.text }
+            return settings.anotherLookType.Book, data
+        end
     end
     return nil, nil
+end
+
+local function RegisterRightClickMenuExit()
+    local RightClickMenuExit = include("mer.RightClickMenuExit")
+    if RightClickMenuExit and RightClickMenuExit.registerMenu then
+        RightClickMenuExit.registerMenu({
+            menuId = settings.menuName,
+            buttonId = settings.returnButtonName,
+        })
+    end
 end
 
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
@@ -186,10 +262,17 @@ local function EnterInspection()
     end
     logger:info("Enter Inspection: %s", context.target.name)
 
-    local another, data = HasAnotherLook(context.target)
+    local another, data = FindAnotherLook(context.target)
+    local status, description = pcall(function() return FindTooltipsComplete(context.target, context.itemData) end)
+    if not status then
+        logger:error("Failed to call Tooltips Complete", tostring(description))
+        description = nil
+    end
 
+    ---@type Activate.Params
+    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description }
     for _, controller in ipairs(controllers) do
-        controller:Activate({ target = context.target, offset = 20, another = { type = another, data = data } })
+        controller:Activate(params)
     end
     context.target = nil
     context.enable = true
@@ -290,14 +373,8 @@ local function OnInitialized()
         LeaveInspection(false)
     end)
 
-    -- RightClickMenuExit mod
-    local RightClickMenuExit = include("mer.RightClickMenuExit")
-    if RightClickMenuExit and RightClickMenuExit.registerMenu then
-        RightClickMenuExit.registerMenu({
-            menuId = settings.menuName,
-            buttonId = settings.returnButtonName,
-        })
-    end
+    RegisterRightClickMenuExit()
+
 end
 
 event.register(tes3.event.initialized, OnInitialized)

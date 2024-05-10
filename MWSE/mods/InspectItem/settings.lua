@@ -1,7 +1,8 @@
 local this = {}
-this.modName = "Inspect Item"
+this.modName = "Inspect It!"
 this.configPath = "InspectItem"
 this.menuName = "InspectItem:MenuInspection"
+this.helpLayerName = "InspectItem:MenuInspectionDescription"
 this.returnButtonName = "InspectItem:ReturnButton"
 this.returnEventName = "InspectItem:ReturnEvent"
 this.switchAnotherLookEventName = "InspectItem:SwitchAnotherLookEvent"
@@ -20,14 +21,14 @@ local defaultConfig = {
     input = {
         ---@type mwseKeyCombo
         inspect = {
-            keyCode = tes3.scanCode.e --[[@as tes3.scanCode]],
-            isShiftDown = false,
+            keyCode = tes3.scanCode.tab --[[@as tes3.scanCode]],
+            isShiftDown = true,
             isAltDown = true,
             isControlDown = false,
         },
         ---@type mwseKeyCombo
         another = {
-            keyCode = tes3.scanCode.a --[[@as tes3.scanCode]],
+            keyCode = tes3.scanCode.s --[[@as tes3.scanCode]],
             isShiftDown = false,
             isAltDown = false,
             isControlDown = false,
@@ -55,6 +56,7 @@ local defaultConfig = {
     display = {
         instruction = true,
         bokeh = true,
+        tooltipsComplete = true,
         -- apply book and scroll, journal
     },
     ---@class Config.Development

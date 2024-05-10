@@ -325,6 +325,52 @@ function this.SwitchAnotherLook(self)
             self.pivot:updateEffects()
 
             -- TODO weapon sound
+            local sounds = {
+                "Item Ammo Down",
+                "Item Ammo Up",
+                "Item Apparatus Down",
+                "Item Apparatus Up",
+                "Item Armor Heavy Down",
+                "Item Armor Heavy Up",
+                "Item Armor Light Down",
+                "Item Armor Light Up",
+                "Item Armor Medium Down",
+                "Item Armor Medium Up",
+                "Item Bodypart Down",
+                "Item Bodypart Up",
+                "Item Book Down",
+                "Item Book Up",
+                "Item Clothes Down",
+                "Item Clothes Up",
+                "Item Gold Down",
+                "Item Gold Up",
+                "Item Ingredient Down",
+                "Item Ingredient Up",
+                "Item Lockpick Down",
+                "Item Lockpick Up",
+                "Item Misc Down",
+                "Item Misc Up",
+                "Item Potion Down",
+                "Item Potion Up",
+                "Item Probe Down",
+                "Item Probe Up",
+                "Item Repair Down",
+                "Item Repair Up",
+                "Item Ring Down",
+                "Item Ring Up",
+                "Item Weapon Blunt Down",
+                "Item Weapon Blunt Up",
+                "Item Weapon Bow Down",
+                "Item Weapon Bow Up",
+                "Item Weapon Crossbow Down",
+                "Item Weapon Crossbow Up",
+                "Item Weapon Longblade Down",
+                "Item Weapon Longblade Up",
+                "Item Weapon Shortblade Down",
+                "Item Weapon Shortblade Up",
+                "Item Weapon Spear Down",
+                "Item Weapon Spear Up",
+            }
         end
 
 
@@ -335,7 +381,7 @@ function this.SwitchAnotherLook(self)
                 tes3ui.showScrollMenu(self.anotherData.data.text)
             end
             -- TODO hide mesh or freeze control
-            -- TODO needs opend flag for some quest
+            -- TODO hide help layer
         end
     end
 

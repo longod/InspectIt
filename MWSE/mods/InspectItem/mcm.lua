@@ -134,6 +134,14 @@ local function OnModConfigReady(e)
                 table = config.display,
             }),
         })
+        display:createOnOffButton({
+            label = settings.i18n("mcm.display.tooltipsComplete.label"),
+            description = settings.i18n("mcm.display.tooltipsComplete.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "tooltipsComplete",
+                table = config.display,
+            }),
+        })
     end
     do
         local dev = page:createCategory({
