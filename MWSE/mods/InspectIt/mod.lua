@@ -4,7 +4,7 @@ function this.RegisterRightClickMenuExit()
     local RightClickMenuExit = include("mer.RightClickMenuExit")
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
         RightClickMenuExit.registerMenu({
-            menuId = settings.menuName,
+            menuId = settings.guideMenu,
             buttonId = settings.returnButtonName,
         })
     end

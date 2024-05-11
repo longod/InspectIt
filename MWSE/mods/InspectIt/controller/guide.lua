@@ -2,6 +2,16 @@ local base = require("InspectIt.controller.base")
 local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
 
+local guideMenu = tes3ui.registerID(settings.guideMenu)
+local helpLayerMenu = tes3ui.registerID("InspectIt:MenuInspectionDescription")
+
+local preferredMenus = {
+    tes3ui.registerID("MenuQuick"),
+    tes3ui.registerID("MenuOptions"),
+    tes3ui.registerID("MenuBook"),
+    tes3ui.registerID("MenuScroll"),
+}
+
 ---@class Guide : IController
 local this = {}
 setmetatable(this, { __index = base })
@@ -51,26 +61,51 @@ local function GetComboString(keyCombo)
     return table.concat(prefixes, " + ")
 end
 
+---@param e enterFrameEventData
+local function OnEnterFrame(e)
+    -- These must be determined by logical OR, since multiple menus can exist at the same time.
+    -- Also, since options are resident, it is better to poll them.
+    local help = tes3ui.findHelpLayerMenu(helpLayerMenu)
+    if help then
+        for _, id in ipairs(preferredMenus) do
+            local menu = tes3ui.findMenu(id)
+            if menu and menu.visible then
+                help.visible = false
+                return
+            end
+        end
+        if config.display.tooltipsComplete then
+            help.visible = true
+        end
+    end
+end
+
+local function Destroy()
+    local menu = tes3ui.findMenu(guideMenu)
+    if menu then
+        menu:destroy()
+    end
+    local help = tes3ui.findHelpLayerMenu(helpLayerMenu)
+    if help then
+        help:destroy()
+    end
+    if event.isRegistered(tes3.event.enterFrame, OnEnterFrame) then
+        event.unregister(tes3.event.enterFrame, OnEnterFrame)
+    end
+end
+
 ---@param self Guide
 ---@param params Activate.Params
 function this.Activate(self, params)
-    do
-        local menu = tes3ui.findMenu(settings.menuName)
-        if menu then
-            menu:destroy()
-        end
-        local help = tes3ui.findHelpLayerMenu(settings.helpLayerName)
-        if help then
-            help:destroy()
-        end
-    end
+    Destroy()
+
     local width, height = tes3ui.getViewportSize()
     local aspectRatio = width/height
     local offset = 0.02
 
     -- This modal menu is a must. If there is not a single modal menu visible on the screen, right-clicking will cause all menus to close and return.
     -- This causes unexpected screen transitions and glitches. Especially in Barter.
-    local menu = tes3ui.createMenu({ id = settings.menuName, dragFrame = false, fixedFrame = true, modal = true })
+    local menu = tes3ui.createMenu({ id = guideMenu, dragFrame = false, fixedFrame = true, modal = true })
     menu:destroyChildren()
     menu.flowDirection = tes3.flowDirection.topToBottom
     menu.absolutePosAlignX = 1.0 - offset
@@ -156,7 +191,7 @@ function this.Activate(self, params)
 
     -- on mouse fade? help layer does not trigger over, leave event
     if config.display.tooltipsComplete and params.description then
-        local help = tes3ui.createHelpLayerMenu({ id = settings.helpLayerName })
+        local help = tes3ui.createHelpLayerMenu({ id = helpLayerMenu })
         help:destroyChildren()
         help.flowDirection = tes3.flowDirection.topToBottom
         help.absolutePosAlignX = offset
@@ -177,32 +212,20 @@ function this.Activate(self, params)
         --block.childAlignX = 0.5
         block:createLabel({ text = params.description }).alpha = 0.9 -- .borderAllSides = 2
         help:updateLayout()
+
+        event.register(tes3.event.enterFrame, OnEnterFrame)
     end
 end
 
 ---@param self Guide
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
-    local menu = tes3ui.findMenu(settings.menuName)
-    if menu then
-        menu:destroy()
-    end
-    local help = tes3ui.findHelpLayerMenu(settings.helpLayerName)
-    if help then
-        help:destroy()
-    end
+    Destroy()
 end
 
 ---@param self Guide
 function this.Reset(self)
-    local menu = tes3ui.findMenu(settings.menuName)
-    if menu then
-        menu:destroy()
-    end
-    local help = tes3ui.findHelpLayerMenu(settings.helpLayerName)
-    if help then
-        help:destroy()
-    end
+    Destroy()
 end
 
 return this

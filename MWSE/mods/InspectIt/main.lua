@@ -25,6 +25,7 @@ local context = {
  ---@return BodyPartsData|WeaponSheathingData? data
 local function FindAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
+        -- Body Parts
         ---@cast target tes3armor|tes3clothing
         if tes3.player and tes3.player.object and target.parts then
             local female = tes3.player.object.female -- depends on player
@@ -44,19 +45,19 @@ local function FindAnotherLook(target)
                 return settings.anotherLookType.BodyParts, data
             end
         end
-    end
-    if target.objectType == tes3.objectType.weapon then
+    elseif target.objectType == tes3.objectType.weapon then
+        -- Weapon Sheathing
         local mesh = target.mesh
         if mesh then
             local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
             if tes3.getFileExists("meshes\\" .. sheathMesh) then
-                logger:info("Find WeaponSheathing mesh: %s", sheathMesh)
+                logger:info("Find Weapon Sheathing mesh: %s", sheathMesh)
                 local data = { path = sheathMesh } ---@type WeaponSheathingData
                 return settings.anotherLookType.WeaponSheathing, data
             end
         end
-    end
-    if target.objectType == tes3.objectType.book then
+    elseif target.objectType == tes3.objectType.book then
+        -- Book or Scroll
         ---@cast target tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
         if not target.script then

@@ -168,18 +168,6 @@ local function OnModConfigReady(e)
                 logger:setLogLevel(self.variable.value)
             end
         })
-        dev:createOnOffButton({
-            label = settings.i18n("mcm.development.logToConsole.label"),
-            description = settings.i18n("mcm.development.logToConsole.description"),
-            variable = mwse.mcm.createTableVariable({
-                id = "logToConsole",
-                table = config.development,
-            }),
-            callback = function(self)
-                local logger = require("InspectIt.logger")
-                logger.logToConsole = config.development.logToConsole
-            end
-        })
     end
 end
 event.register(tes3.event.modConfigReady, OnModConfigReady)

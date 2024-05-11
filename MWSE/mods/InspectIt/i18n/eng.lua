@@ -32,11 +32,9 @@ return {
     ["mcm.display.bokeh.label"] = "Focus Effect",
     ["mcm.display.bokeh.description"] = "Display the effect of blurring the background during inspection.",
     ["mcm.display.tooltipsComplete.label"] = "Tooltips Complete",
-    ["mcm.display.tooltipsComplete.description"] = "Display a description by Tooltips Complete during inspection. That config is also applied.",
+    ["mcm.display.tooltipsComplete.description"] = "Display a description by Tooltips Complete mod during inspection. That config is also applied.",
     ["mcm.development.category.label"] = "Development",
     ["mcm.development.category.description"] = "Features for development.",
     ["mcm.development.logLevel.label"] = "Logging Level",
     ["mcm.development.logLevel.description"] = "Set the log level.",
-    ["mcm.development.logToConsole.label"] = "Log to Console",
-    ["mcm.development.logToConsole.description"] = "Output the log to console.",
 }

@@ -14,17 +14,14 @@ local menus = {
     "MenuAlchemy", --
     "MenuAttributes", --
     -- "MenuAttributesList", -- Enchanting/spellmaking effect attribute
-    -- "MenuAudio", -- Options, audio
     "MenuBarter", --
     -- "MenuBirthSign", --
-    "MenuBook", --
+    -- "MenuBook", --
     -- "MenuChooseClass", --
     -- "MenuClassChoice", --
     -- "MenuClassMessage", --
     -- "MenuConsole", --
     "MenuContents", -- Container/NPC inventory
-    -- "MenuCreateClass", --
-    -- "MenuCtrls", -- Options, controls
     -- "MenuDialog", --
     "MenuEnchantment", --
     -- "MenuInput", --
@@ -32,9 +29,6 @@ local menus = {
     "MenuInventory", -- Player inventory
     "MenuInventorySelect", -- Item selector
     "MenuJournal", --
-    -- "MenuLevelUp", --
-    -- "MenuLoad", --
-    -- "MenuLoading", --
     "MenuMagic", -- Spell/enchanted item selector
     -- "MenuMagicSelect", --
     "MenuMap", --
@@ -42,15 +36,7 @@ local menus = {
     -- "MenuMessage", --
     -- "MenuMulti", -- Status bars, current weapon/magic, active effects and minimap
     -- "MenuName", --
-    -- "MenuNotify1", --
-    -- "MenuNotify2", --
-    -- "MenuNotify3", --
-    -- "MenuOptions", -- Main menu
-    -- "MenuPersuasion", --
-    -- "MenuPrefs", -- Options, preferences
-    -- "MenuQuantity", --
     -- "MenuQuick", -- Quick keys
-    -- "MenuRaceSex", --
     "MenuRepair", --
     -- "MenuRestWait", --
     -- "MenuSave", --
@@ -65,11 +51,9 @@ local menus = {
     "MenuSpecialization", --
     "MenuSpellmaking", --
     "MenuStat", -- Player attributes, skills, factions etc.
-    -- "MenuStatReview", --
     -- "MenuSwimFillBar", --
     -- "MenuTimePass", --
     -- "MenuTopic", --
-    -- "MenuVideo", -- Options, video
 }
 
 ---@return Visibility

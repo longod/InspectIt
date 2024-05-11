@@ -1,8 +1,7 @@
 local this = {}
 this.modName = "Inspect It!"
 this.configPath = "InspectIt"
-this.menuName = "InspectIt:MenuInspection"
-this.helpLayerName = "InspectIt:MenuInspectionDescription"
+this.guideMenu = "InspectIt:MenuInspection"
 this.returnButtonName = "InspectIt:ReturnButton"
 this.returnEventName = "InspectIt:ReturnEvent"
 this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
@@ -17,7 +16,7 @@ this.anotherLookType = {
 }
 
 ---@class Config
-local defaultConfig = {
+this.defaultConfig = {
     input = {
         ---@type mwseKeyCombo
         inspect = {
@@ -62,14 +61,9 @@ local defaultConfig = {
     ---@class Config.Development
     development = {
         logLevel = "INFO",
-        logToConsole = false,
+        -- logToConsole = false,
         -- test = false,
     }
 }
-
----@return Config
-function this.DefaultConfig()
-    return defaultConfig
-end
 
 return this
