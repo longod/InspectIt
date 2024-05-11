@@ -5,12 +5,7 @@ local settings = require("InspectIt.settings")
 local guideMenu = tes3ui.registerID(settings.guideMenu)
 local helpLayerMenu = tes3ui.registerID("InspectIt:MenuInspectionDescription")
 
-local preferredMenus = {
-    tes3ui.registerID("MenuQuick"),
-    tes3ui.registerID("MenuOptions"),
-    tes3ui.registerID("MenuBook"),
-    tes3ui.registerID("MenuScroll"),
-}
+
 
 ---@class Guide : IController
 local this = {}
@@ -63,16 +58,11 @@ end
 
 ---@param e enterFrameEventData
 local function OnEnterFrame(e)
-    -- These must be determined by logical OR, since multiple menus can exist at the same time.
-    -- Also, since options are resident, it is better to poll them.
     local help = tes3ui.findHelpLayerMenu(helpLayerMenu)
     if help then
-        for _, id in ipairs(preferredMenus) do
-            local menu = tes3ui.findMenu(id)
-            if menu and menu.visible then
-                help.visible = false
-                return
-            end
+        if settings.OnOtherMenu() then
+            help.visible = false
+            return
         end
         if config.display.tooltipsComplete then
             help.visible = true

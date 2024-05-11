@@ -1,4 +1,5 @@
 return {
+    ["messageBox.unsupport.text"] = "Inspect It!: It is not yet supported for inspection.",
     ["guide.rotate.text"] = "Rotate: Mouse drag",
     ["guide.zoom.text"] = "Zoom: Mouse wheel",
     ["guide.another.text"] = "Switch another",

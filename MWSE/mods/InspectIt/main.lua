@@ -27,6 +27,7 @@ local function FindAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         -- Body Parts
         ---@cast target tes3armor|tes3clothing
+        --[[ -- under researching
         if tes3.player and tes3.player.object and target.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = target.parts
@@ -45,6 +46,7 @@ local function FindAnotherLook(target)
                 return settings.anotherLookType.BodyParts, data
             end
         end
+        --]]
     elseif target.objectType == tes3.objectType.weapon then
         -- Weapon Sheathing
         local mesh = target.mesh
@@ -61,9 +63,8 @@ local function FindAnotherLook(target)
         ---@cast target tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
         if not target.script then
-            -- exclude in barter?
+            -- exclude in barter? check owner?
             logger:info("Find book %d: %s", target.type, target.name)
-            -- check owner?
             local data = { type = target.type, text = target.text }
             return settings.anotherLookType.Book, data
         end
@@ -283,8 +284,16 @@ end
 
 ---@return boolean
 local function EnterInspection()
-    -- and more condition
-    if context.enable or not CanInspection(context.target) then
+    if context.enable or not context.target then
+        context.target = nil
+        context.itemData = nil
+        return false
+    end
+    if not CanInspection(context.target) then
+        logger:info("Unsupported Inspection: %s", context.target.name)
+        tes3.messageBox(settings.i18n("messageBox.unsupport.text"))
+        context.target = nil
+        context.itemData = nil
         return false
     end
     logger:info("Enter Inspection: %s", context.target.name)
@@ -301,6 +310,7 @@ local function EnterInspection()
     for _, controller in ipairs(controllers) do
         controller:Activate(params)
     end
+    -- PlayItemSound(context.target, false) -- controller
     context.target = nil
     context.itemData = nil
     context.enable = true
@@ -331,42 +341,44 @@ local function OnKeyDown(e)
     if tes3.onMainMenu() then
         return
     end
-    if TestInput(e, config.input.inspect) then
-        if context.enable then
-            if LeaveInspection(false) then
-                tes3.worldController.menuClickSound:play()
-            end
+
+    if context.enable then
+        if settings.OnOtherMenu() then
+            -- pause
         else
+            if TestInput(e, config.input.inspect) then
+                if LeaveInspection(false) then
+                    tes3.worldController.menuClickSound:play()
+                end
+            end
+            if TestInput(e, config.input.another) then
+                tes3.worldController.menuClickSound:play()
+                event.trigger(settings.switchAnotherLookEventName)
+            end
+            if TestInput(e, config.input.reset) then
+                tes3.worldController.menuClickSound:play()
+                event.trigger(settings.resetPoseEventName)
+            end
+        end
+    else
+        if TestInput(e, config.input.inspect) then
             if not context.target then
                 if tes3.menuMode() then
                     -- TODO get cursor obj
                 else
                     local ref = tes3.getPlayerTarget()
-                    if ref and ref.object then -- and more conditions
+                    if ref and ref.object then     -- and more conditions
                         context.target = ref.object
                         context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
                     end
                 end
             end
-
-            -- PlayItemSound(context.target, false)
-
             if EnterInspection() then
                 tes3.worldController.menuClickSound:play()
             end
         end
         if context.enable then
             --e.claim = true
-        end
-    end
-    if context.enable then
-        if TestInput(e, config.input.another) then
-            tes3.worldController.menuClickSound:play()
-            event.trigger(settings.switchAnotherLookEventName)
-        end
-        if TestInput(e, config.input.reset) then
-            tes3.worldController.menuClickSound:play()
-            event.trigger(settings.resetPoseEventName)
         end
     end
 end
@@ -393,9 +405,9 @@ end
 ---@param e menuExitEventData
 local function OnMenuExit(e)
     -- fail-safe
-    --LeaveInspection(true)
     if context.enable then
         logger:error("Not terminated")
+        LeaveInspection(true)
     end
     context.target = nil
     context.itemData = nil

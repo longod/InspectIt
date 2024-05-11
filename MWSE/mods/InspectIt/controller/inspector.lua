@@ -52,7 +52,7 @@ local function GetOrientation(object)
         [tes3.objectType.book] = tes3vector3.new(-90, 0, 0),
         -- [tes3.objectType.cell] = tes3vector3.new(0, 0, 0),
         [tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0), -- TODO need better angle
-        -- [tes3.objectType.container] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.container] = tes3vector3.new(0, 0, 0), -- fixed
         [tes3.objectType.creature] = tes3vector3.new(0, 0, 0),   -- fixed
         [tes3.objectType.door] = tes3vector3.new(0, 0, -90),
         -- [tes3.objectType.enchantment] = tes3vector3.new(0, 0, 0),
@@ -221,7 +221,8 @@ end
 ---@param self Inspector
 ---@param e enterFrameEventData
 function this.OnEnterFrame(self, e)
-    if tes3.onMainMenu() then
+    if settings.OnOtherMenu() then
+        -- pause
         return
     end
 
@@ -384,10 +385,7 @@ function this.SwitchAnotherLook(self)
 
                             -- extract root
                             --model.rotation = socket.rotation:copy():invert()
-                            -- why wrong rotation? y-up or z-up?
-                            local yup = tes3matrix33.new()
-                            yup:toRotationY(math.rad(90))
-                            model.rotation = yup
+                            -- why wrong rotation?
                             socket:attachChild(model)
                             -- model.translation = socket.worldTransform:copy() * model.translation:copy()
                             -- model.rotation = socket.worldTransform.rotation:copy()
@@ -561,13 +559,13 @@ function this.Activate(self, params)
             -- transformed? maybe no.
             local transform = node.worldTransform:copy()
             for _, vert in ipairs(data.vertices) do
-                vert = transform * vert:copy()
-                bounds.max.x = math.max(bounds.max.x, vert.x);
-                bounds.max.y = math.max(bounds.max.y, vert.y);
-                bounds.max.z = math.max(bounds.max.z, vert.z);
-                bounds.min.x = math.min(bounds.min.x, vert.x);
-                bounds.min.y = math.min(bounds.min.y, vert.y);
-                bounds.min.z = math.min(bounds.min.z, vert.z);
+                local v = transform * vert:copy()
+                bounds.max.x = math.max(bounds.max.x, v.x);
+                bounds.max.y = math.max(bounds.max.y, v.y);
+                bounds.max.z = math.max(bounds.max.z, v.z);
+                bounds.min.x = math.min(bounds.min.x, v.x);
+                bounds.min.y = math.min(bounds.min.y, v.y);
+                bounds.min.z = math.min(bounds.min.z, v.z);
             end
         end
     end)
@@ -595,7 +593,7 @@ function this.Activate(self, params)
         end
         return ""
     end
-    self.logger:info("objectType: %s", findKey(target.objectType))
+    self.logger:debug("objectType: %s", findKey(target.objectType))
     local orientation = GetOrientation(target)
     if orientation then
         local rot = tes3matrix33.new()

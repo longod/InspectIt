@@ -8,6 +8,15 @@ this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
 this.resetPoseEventName = "InspectIt:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectIt")
 
+---@return boolean
+function this.OnOtherMenu()
+    local top = tes3ui.getMenuOnTop()
+    if top and top.name ~= this.guideMenu then
+        return true
+    end
+    return false
+end
+
 ---@enum AnotherLookType
 this.anotherLookType = {
     BodyParts = 1,
