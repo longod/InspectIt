@@ -135,6 +135,14 @@ local function OnModConfigReady(e)
             }),
         })
         display:createOnOffButton({
+            label = settings.i18n("mcm.display.recalculateBounds.label"),
+            description = settings.i18n("mcm.display.recalculateBounds.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "recalculateBounds",
+                table = config.display,
+            }),
+        })
+        display:createOnOffButton({
             label = settings.i18n("mcm.display.tooltipsComplete.label"),
             description = settings.i18n("mcm.display.tooltipsComplete.description"),
             variable = mwse.mcm.createTableVariable({

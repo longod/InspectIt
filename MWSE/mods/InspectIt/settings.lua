@@ -64,6 +64,7 @@ this.defaultConfig = {
     display = {
         instruction = true,
         bokeh = true,
+        recalculateBounds = true,
         tooltipsComplete = true,
         -- apply book and scroll, journal
     },

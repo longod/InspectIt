@@ -1,5 +1,5 @@
 local base = require("InspectIt.controller.base")
-local config = require("InspectIt.config").input
+local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
@@ -51,9 +51,9 @@ local function GetOrientation(object)
         [tes3.objectType.bodyPart] = tes3vector3.new(0, 0, 0), -- fixed?
         [tes3.objectType.book] = tes3vector3.new(-90, 0, 0),
         -- [tes3.objectType.cell] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0), -- TODO need better angle
+        --[tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0),
         [tes3.objectType.container] = tes3vector3.new(0, 0, 0), -- fixed
-        [tes3.objectType.creature] = tes3vector3.new(0, 0, 0),   -- fixed
+        [tes3.objectType.creature] = tes3vector3.new(0, 0, 180),
         [tes3.objectType.door] = tes3vector3.new(0, 0, -90),
         -- [tes3.objectType.enchantment] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.ingredient] = tes3vector3.new(0, 0, 0),
@@ -71,7 +71,7 @@ local function GetOrientation(object)
         -- [tes3.objectType.mobilePlayer] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.mobileProjectile] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.mobileSpellProjectile] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.npc] = tes3vector3.new(0, 0, 0), -- fixed
+        [tes3.objectType.npc] = tes3vector3.new(0, 0, 180), -- fixed
         [tes3.objectType.probe] = tes3vector3.new(-90, 0, 0),
         -- [tes3.objectType.reference] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.region] = tes3vector3.new(0, 0, 0),
@@ -234,7 +234,7 @@ function this.OnEnterFrame(self, e)
 
         local zoom = ic.mouseState.z
         if math.abs(zoom) > zoomThreshold then
-            zoom = zoom * 0.001 * config.sensitivityZ * (config.inversionZ and -1 or 1)
+            zoom = zoom * 0.001 * config.input.sensitivityZ * (config.input.inversionZ and -1 or 1)
             self.logger:trace("wheel %f", ic.mouseState.z)
             self.logger:trace("wheel velocity %f", zoom)
             -- update current zooming
@@ -263,8 +263,8 @@ function this.OnEnterFrame(self, e)
             if math.abs(xAngle) <= angleThreshold then
                 xAngle = 0
             end
-            zAngle = zAngle * wc.mouseSensitivityX * config.sensitivityX * (config.inversionX and -1 or 1)
-            xAngle = xAngle * wc.mouseSensitivityY * config.sensitivityY * (config.inversionY and -1 or 1)
+            zAngle = zAngle * wc.mouseSensitivityX * config.input.sensitivityX * (config.input.inversionX and -1 or 1)
+            xAngle = xAngle * wc.mouseSensitivityY * config.input.sensitivityY * (config.input.inversionY and -1 or 1)
             self.logger:trace("drag velocity %f, %f", zAngle, xAngle)
 
             self.angularVelocity.z = zAngle
@@ -449,8 +449,6 @@ function this.SwitchAnotherLook(self)
             elseif self.anotherData.data.type == tes3.bookType.scroll then
                 tes3ui.showScrollMenu(self.anotherData.data.text)
             end
-            -- TODO hide mesh or freeze control
-            -- TODO hide help layer
         end
     end
 
@@ -466,7 +464,6 @@ function this.ResetPose(self)
 
         self.root.rotation = self.baseRotation:copy()
 
-        local scale = 1
         self:SetScale(1)
     end
 end
@@ -507,17 +504,22 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance)
     local fovX = cameraData.fov
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
-    local width = tan * distance
+    local width = tan * math.max(distance - cameraData.nearPlaneDistance, cameraData.nearPlaneDistance)
     local height = width * aspectRatio
     -- conservative
     local screenSize = math.min(width, height)
     local size = bounds.max - bounds.min
     local boundsSize = math.max(size.x, size.y, size.z, math.fepsilon)
-    local scale = screenSize / boundsSize
 
     -- diagonal
     -- boundsSize = size:length() -- 3d or dominant 2d
     -- screenSize = math.sqrt(width * width + height * height)
+
+    -- moderation
+    boundsSize = size:length() -- 3d diagonal
+    screenSize = math.max(width, height)
+
+    local scale = screenSize / boundsSize
 
     self.logger:trace("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
         cameraData.fov)                                                                                                        -- or world fov?
@@ -548,27 +550,29 @@ function this.Activate(self, params)
     -- more tight bounds, but possible too heavy.
     ----[[
     model:update() -- FIXME trailer partiles gone. but currently thoses are glitched, so its ok.
-    self.logger:debug(tostring(bounds.max))
-    self.logger:debug(tostring(bounds.min))
-    bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
-    bounds.min = tes3vector3.new(math.fhuge,math.fhuge,math.fhuge)
-    foreach(model, function (node)
-        if node:isInstanceOfType(ni.type.NiTriShape) then
-            ---@cast node niTriShape
-            local data = node.data
-            -- transformed? maybe no.
-            local transform = node.worldTransform:copy()
-            for _, vert in ipairs(data.vertices) do
-                local v = transform * vert:copy()
-                bounds.max.x = math.max(bounds.max.x, v.x);
-                bounds.max.y = math.max(bounds.max.y, v.y);
-                bounds.max.z = math.max(bounds.max.z, v.z);
-                bounds.min.x = math.min(bounds.min.x, v.x);
-                bounds.min.y = math.min(bounds.min.y, v.y);
-                bounds.min.z = math.min(bounds.min.z, v.z);
+    if config.display.recalculateBounds then
+        self.logger:debug(tostring(bounds.max))
+        self.logger:debug(tostring(bounds.min))
+        bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
+        bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
+        foreach(model, function(node)
+            if node:isInstanceOfType(ni.type.NiTriShape) then
+                ---@cast node niTriShape
+                local data = node.data
+                -- transformed? maybe no.
+                local transform = node.worldTransform:copy()
+                for _, vert in ipairs(data.vertices) do
+                    local v = transform * vert:copy()
+                    bounds.max.x = math.max(bounds.max.x, v.x);
+                    bounds.max.y = math.max(bounds.max.y, v.y);
+                    bounds.max.z = math.max(bounds.max.z, v.z);
+                    bounds.min.x = math.min(bounds.min.x, v.x);
+                    bounds.min.y = math.min(bounds.min.y, v.y);
+                    bounds.min.z = math.min(bounds.min.z, v.z);
+                end
             end
-        end
-    end)
+        end)
+    end
     --]]
 
     self.anotherData = params.another
@@ -602,6 +606,7 @@ function this.Activate(self, params)
     else
         -- auto rotation
         -- dominant axis based
+        -- TODO more better algorithm
         local size = bounds.max - bounds.min
         self.logger:debug("bounds size: %f, %f, %f", size.x, size.y, size.z)
         local my = 0
