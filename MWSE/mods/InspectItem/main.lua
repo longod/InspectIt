@@ -20,85 +20,6 @@ local context = {
     itemData = nil, ---@type tes3itemData?
 }
 
----@param e itemTileUpdatedEventData
-local function OnItemTileUpdated(e)
-    -- or just tooltip callback
-    e.element:registerAfter(tes3.uiEvent.mouseOver,
-        ---@param ev tes3uiEventData
-        function(ev)
-            context.target = e.item
-            context.itemData = e.itemData
-        end)
-    e.element:registerAfter(tes3.uiEvent.mouseLeave,
-        ---@param ev tes3uiEventData
-        function(ev)
-            if context.target then
-                context.target = nil
-                context.itemData = nil
-            end
-        end)
-end
-
-
----@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
----@param itemData tes3itemData?
----@return string?
-local function FindTooltipsComplete(target, itemData)
-    local tooltipData = include("Tooltips Complete.data")
-    if not tooltipData then
-        return nil
-    end
-    local config = mwse.loadConfig("tooltipsComplete")
-    if not config then
-        return nil
-    end
-    local mcmMapping = {
-        { descriptionTable = tooltipData.keyTable,        mcm = "keyTooltips" },
-        { descriptionTable = tooltipData.questTable,      mcm = "questTooltips" },
-        { descriptionTable = tooltipData.uniqueTable,     mcm = "uniqueTooltips" },
-        { descriptionTable = tooltipData.artifactTable,   mcm = "artifactTooltips" },
-        { descriptionTable = tooltipData.armorTable,      mcm = "armorTooltips" },
-        { descriptionTable = tooltipData.weaponTable,     mcm = "weaponTooltips" },
-        { descriptionTable = tooltipData.toolTable,       mcm = "toolTooltips" },
-        { descriptionTable = tooltipData.miscTable,       mcm = "miscTooltips" },
-        { descriptionTable = tooltipData.bookTable,       mcm = "bookTooltips" },
-        { descriptionTable = tooltipData.clothingTable,   mcm = "clothingTooltips" },
-        { descriptionTable = tooltipData.soulgemTable,    mcm = "soulgemTooltips" },
-        { descriptionTable = tooltipData.lightTable,      mcm = "lightTooltips" },
-        { descriptionTable = tooltipData.potionTable,     mcm = "potionTooltips" },
-        { descriptionTable = tooltipData.ingredientTable, mcm = "ingredientTooltips" },
-        { descriptionTable = tooltipData.scrollTable,     mcm = "scrollTooltips" },
-    }
-    if config.menuOnly then
-        -- return nil
-    end
-
-    local file = target.sourceMod
-    if file and config.blocked[file:lower()] then
-        return
-    elseif config.blocked[target.id:lower()] then
-        return
-    end
-
-    for _, data in ipairs(mcmMapping) do
-        local description = data.descriptionTable[target.id:lower()]
-        if config[data.mcm] and description then
-            --soul gem item data
-            if (target.isSoulGem and itemData and itemData.soul) then
-                if config.blocked[itemData.soul.id:lower()] then
-                    return description
-                end
-                if (itemData.soul.id == nil) then
-                    return description
-                end
-                description = tooltipData.filledTable[itemData.soul.id:lower()] or ""
-            end
-            return description
-        end
-    end
-    return nil
-end
-
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
  ---@return BodyPartsData|WeaponSheathingData? data
@@ -106,34 +27,15 @@ local function FindAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         ---@cast target tes3armor|tes3clothing
         if tes3.player and tes3.player.object and target.parts then
-            local female = tes3.player.object.female
+            local female = tes3.player.object.female -- depends on player
             local parts = target.parts
             local bodyParts = {} ---@type BodyPartsData[]
-            for index, ware in ipairs(parts) do
-                -- target.isLeftPart
-                -- Mara's shirt is wired
+            for _, ware in ipairs(parts) do
                 local part = ware.male
                 if female and ware.female then
                     part = ware.female
                 end
                 if part then
-                    logger:debug(ware.type)
-                    logger:debug(part.part)
-                    logger:debug(part.partType)
-                    logger:debug(part.mesh)
-                    logger:debug(part.sceneNode)
-                    local bp = tes3.player.bodyPartManager:getActiveBodyPartForItem(target)
-                    -- logger:debug(part.sceneNode)
-                    -- logger:debug(bp.node)
-                    --logger:debug(bp.bodyPart.sceneNode)
-
-                    -- animated?
-                    local active = tes3.player.bodyPartManager:getActiveBodyPart(part.partType, ware.type)
-                    logger:debug(active.node)
-                    --logger:debug(active.bodyPart)
-                    --logger:debug(active.bodyPart.sceneNode)
-
-
                     table.insert(bodyParts, { type = ware.type, part = part })
                 end
             end
@@ -158,6 +60,7 @@ local function FindAnotherLook(target)
         ---@cast target tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
         if not target.script then
+            -- exclude in barter?
             logger:info("Find book %d: %s", target.type, target.name)
             -- check owner?
             local data = { type = target.type, text = target.text }
@@ -167,15 +70,6 @@ local function FindAnotherLook(target)
     return nil, nil
 end
 
-local function RegisterRightClickMenuExit()
-    local RightClickMenuExit = include("mer.RightClickMenuExit")
-    if RightClickMenuExit and RightClickMenuExit.registerMenu then
-        RightClickMenuExit.registerMenu({
-            menuId = settings.menuName,
-            buttonId = settings.returnButtonName,
-        })
-    end
-end
 
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
  ---@return boolean
@@ -189,20 +83,14 @@ local function CanInspection(target)
         [tes3.objectType.ammunition] = true,
         [tes3.objectType.apparatus] = true,
         [tes3.objectType.armor] = true,
-        -- [tes3.objectType.birthsign] = true,
         [tes3.objectType.bodyPart] = true,
         [tes3.objectType.book] = true,
         -- [tes3.objectType.cell] = true,
-        -- [tes3.objectType.class] = true,
         [tes3.objectType.clothing] = true,
         [tes3.objectType.container] = true,
         [tes3.objectType.creature] = true,
-        -- [tes3.objectType.dialogue] = true,
-        -- [tes3.objectType.dialogueInfo] = true,
         [tes3.objectType.door] = true,
         -- [tes3.objectType.enchantment] = true,
-        -- [tes3.objectType.faction] = true,
-        -- [tes3.objectType.gmst] = true,
         [tes3.objectType.ingredient] = true,
         -- [tes3.objectType.land] = true,
         -- [tes3.objectType.landTexture] = true,
@@ -219,24 +107,162 @@ local function CanInspection(target)
         -- [tes3.objectType.mobileProjectile] = true,
         -- [tes3.objectType.mobileSpellProjectile] = true,
         [tes3.objectType.npc] = false, -- TODO NPC needs to resolve body parts
-        -- [tes3.objectType.pathGrid] = true,
         [tes3.objectType.probe] = true,
-        -- [tes3.objectType.quest] = true,
-        -- [tes3.objectType.race] = true,
         -- [tes3.objectType.reference] = true,
         -- [tes3.objectType.region] = true,
         [tes3.objectType.repairItem] = true,
-        -- [tes3.objectType.script] = true,
-        -- [tes3.objectType.skill] = true,
-        -- [tes3.objectType.sound] = true,
-        -- [tes3.objectType.soundGenerator] = true,
         -- [tes3.objectType.spell] = true,
-        -- [tes3.objectType.startScript] = true,
         -- [tes3.objectType.static] = true,
         [tes3.objectType.weapon] = true,
     }
 
     return enabled[target.objectType] == true
+end
+
+---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+---@param down boolean
+local function PlayItemSound(target, down)
+    if not target then
+        return
+    end
+    -- TODO use Character Sound Overhaul data, but API is local.
+    local axeFix = tes3.isModActive("Axe Sound ID Fix.esp")
+    local downId = {
+        [tes3.objectType.ammunition] = "Item Ammo Down",
+        [tes3.objectType.apparatus] = "Item Apparatus Down",
+        [tes3.objectType.armor] = {
+            [tes3.armorWeightClass.light] = "Item Armor Light Down",
+            [tes3.armorWeightClass.medium] = "Item Armor Medium Down",
+            [tes3.armorWeightClass.heavy] = "Item Armor Heavy Down",
+        },
+        [tes3.objectType.bodyPart] = "Item Bodypart Down",
+        [tes3.objectType.book] = "Item Book Down",
+        [tes3.objectType.clothing] = {
+            [tes3.clothingSlot.amulet] = "Item Ring Down",
+            [tes3.clothingSlot.ring] = "Item Ring Down",
+            ["falllback"] = "Item Clothes Down",
+        },
+        [tes3.objectType.miscItem] = {
+            ["gold_001"] = "Item Gold Down",
+            ["gold_005"] = "Item Gold Down",
+            ["gold_010"] = "Item Gold Down",
+            ["gold_025"] = "Item Gold Down",
+            ["gold_100"] = "Item Gold Down",
+            ["gold_dae_cursed_001"] = "Item Gold Down",
+            ["gold_dae_cursed_005"] = "Item Gold Down",
+            ["lucky_coin"] = "Item Gold Down",
+            ["fallback"] = "Item Misc Down",
+        },
+        [tes3.objectType.ingredient] = "Item Ingredient Down",
+        [tes3.objectType.lockpick] = "Item Lockpick Down",
+        [tes3.objectType.alchemy] = "Item Potion Down",
+        [tes3.objectType.probe] = "Item Probe Down",
+        [tes3.objectType.repairItem] = "Item Repair Down",
+        [tes3.objectType.weapon] = {
+            [tes3.weaponType.shortBladeOneHand] = "Item Weapon Shortblade Down",
+            [tes3.weaponType.longBladeOneHand] = "Item Weapon Longblade Down",
+            [tes3.weaponType.longBladeTwoClose] = "Item Weapon Longblade Down",
+            [tes3.weaponType.bluntOneHand] = "Item Weapon Blunt Down",
+            [tes3.weaponType.bluntTwoClose] = "Item Weapon Blunt Down",
+            [tes3.weaponType.bluntTwoWide] = "Item Weapon Blunt Down",
+            [tes3.weaponType.spearTwoWide] = "Item Weapon Spear Down",
+            [tes3.weaponType.axeOneHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Down",
+            [tes3.weaponType.axeTwoHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Down",
+            [tes3.weaponType.marksmanBow] = "Item Weapon Bow Down",
+            [tes3.weaponType.marksmanCrossbow] = "Item Weapon Crossbow Down",
+            --[tes3.weaponType.marksmanThrown] = "Item Weapon TEMP Down",
+            --[tes3.weaponType.arrow] = "Item Weapon TEMP Down",
+            --[tes3.weaponType.bolt] = "Item Weapon TEMP Down",
+        },
+    }
+    local upId = {
+        [tes3.objectType.ammunition] = "Item Ammo Up",
+        [tes3.objectType.apparatus] = "Item Apparatus Up",
+        [tes3.objectType.armor] = {
+            [tes3.armorWeightClass.light] = "Item Armor Light Up",
+            [tes3.armorWeightClass.medium] = "Item Armor Medium Up",
+            [tes3.armorWeightClass.heavy] = "Item Armor Heavy Up",
+        },
+        [tes3.objectType.bodyPart] = "Item Bodypart Up",
+        [tes3.objectType.book] = "Item Book Up",
+        [tes3.objectType.clothing] = {
+            [tes3.clothingSlot.amulet] = "Item Ring Up",
+            [tes3.clothingSlot.ring] = "Item Ring Up",
+            ["falllback"] = "Item Clothes Up",
+        },
+        [tes3.objectType.miscItem] = {
+            ["gold_001"] = "Item Gold Up",
+            ["gold_005"] = "Item Gold Up",
+            ["gold_010"] = "Item Gold Up",
+            ["gold_025"] = "Item Gold Up",
+            ["gold_100"] = "Item Gold Up",
+            ["gold_dae_cursed_001"] = "Item Gold Up",
+            ["gold_dae_cursed_005"] = "Item Gold Up",
+            ["fallback"] = "Item Misc Up",
+        },
+        [tes3.objectType.ingredient] = "Item Ingredient Up",
+        [tes3.objectType.lockpick] = "Item Lockpick Up",
+        [tes3.objectType.alchemy] = "Item Potion Up",
+        [tes3.objectType.probe] = "Item Probe Up",
+        [tes3.objectType.repairItem] = "Item Repair Up",
+        [tes3.objectType.weapon] = {
+            [tes3.weaponType.shortBladeOneHand] = "Item Weapon Shortblade Up",
+            [tes3.weaponType.longBladeOneHand] = "Item Weapon Longblade Up",
+            [tes3.weaponType.longBladeTwoClose] = "Item Weapon Longblade Up",
+            [tes3.weaponType.bluntOneHand] = "Item Weapon Blunt Up",
+            [tes3.weaponType.bluntTwoClose] = "Item Weapon Blunt Up",
+            [tes3.weaponType.bluntTwoWide] = "Item Weapon Blunt Up",
+            [tes3.weaponType.spearTwoWide] = "Item Weapon Spear Up",
+            [tes3.weaponType.axeOneHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Up",
+            [tes3.weaponType.axeTwoHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Up",
+            [tes3.weaponType.marksmanBow] = "Item Weapon Bow Up",
+            [tes3.weaponType.marksmanCrossbow] = "Item Weapon Crossbow Up",
+            --[tes3.weaponType.marksmanThrown] = "Item Weapon TEMP Up",
+            --[tes3.weaponType.arrow] = "Item Weapon TEMP Up",
+            --[tes3.weaponType.bolt] = "Item Weapon TEMP Up",
+        },
+    }
+    local primary = down and downId or upId
+    local id = primary[target.objectType]
+    if target.objectType == tes3.objectType.armor then
+        ---@cast target tes3armor
+        local sub = id[target.weightClass]
+        if sub then
+            id = sub
+        end
+    elseif target.objectType == tes3.objectType.clothing then
+        ---@cast target tes3clothing
+        local sub = id[target.slot]
+        if sub then
+            id = sub
+        else
+            id = id["fallback"]
+        end
+    elseif target.objectType == tes3.objectType.miscItem then
+        ---@cast target tes3misc
+        local sub = id[target.id:lower()]
+        if sub then
+            id = sub
+        else
+            id = id["fallback"]
+        end
+    elseif target.objectType == tes3.objectType.weapon then
+        ---@cast target tes3weapon
+        local sub = id[target.type]
+        if sub then
+            id = sub
+        else
+            id = id["fallback"]
+        end
+    end
+    -- door has open/close sound
+    if not id or type(id) == "table" then
+        -- fallback
+        return
+    end
+    logger:debug("play sound: %",id)
+    local sound = tes3.getSound(id)
+    sound:play()
 end
 
 ---@param menuExit boolean
@@ -263,9 +289,9 @@ local function EnterInspection()
     logger:info("Enter Inspection: %s", context.target.name)
 
     local another, data = FindAnotherLook(context.target)
-    local status, description = pcall(function() return FindTooltipsComplete(context.target, context.itemData) end)
+    local status, description = pcall(function() return require("InspectItem.mod").FindTooltipsComplete(context.target, context.itemData) end)
     if not status then
-        logger:error("Failed to call Tooltips Complete", tostring(description))
+        logger:error("Failed to call Tooltips Complete: %s", tostring(description))
         description = nil
     end
 
@@ -275,6 +301,7 @@ local function EnterInspection()
         controller:Activate(params)
     end
     context.target = nil
+    context.itemData = nil
     context.enable = true
     return true
 end
@@ -306,7 +333,7 @@ local function OnKeyDown(e)
     if TestInput(e, config.input.inspect) then
         if context.enable then
             if LeaveInspection(false) then
-                tes3.worldController.menuClickSound:play() -- TODO controller
+                tes3.worldController.menuClickSound:play()
             end
         else
             if not context.target then
@@ -316,12 +343,15 @@ local function OnKeyDown(e)
                     local ref = tes3.getPlayerTarget()
                     if ref and ref.object then -- and more conditions
                         context.target = ref.object
+                        context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
                     end
                 end
             end
 
+            -- PlayItemSound(context.target, false)
+
             if EnterInspection() then
-                tes3.worldController.menuClickSound:play() -- TODO controller
+                tes3.worldController.menuClickSound:play()
             end
         end
         if context.enable then
@@ -340,6 +370,24 @@ local function OnKeyDown(e)
     end
 end
 
+---@param e itemTileUpdatedEventData
+local function OnItemTileUpdated(e)
+    -- or just tooltip callback
+    e.element:registerAfter(tes3.uiEvent.mouseOver,
+        ---@param ev tes3uiEventData
+        function(ev)
+            context.target = e.item
+            context.itemData = e.itemData
+        end)
+    e.element:registerAfter(tes3.uiEvent.mouseLeave,
+        ---@param ev tes3uiEventData
+        function(ev)
+            if context.target then
+                context.target = nil
+                context.itemData = nil
+            end
+        end)
+end
 
 ---@param e menuExitEventData
 local function OnMenuExit(e)
@@ -349,6 +397,7 @@ local function OnMenuExit(e)
         logger:error("Not terminated")
     end
     context.target = nil
+    context.itemData = nil
 end
 
 ---@param e loadEventData
@@ -359,6 +408,7 @@ local function OnLoad(e)
         controller:Reset()
     end
     context.target = nil
+    context.itemData = nil
 end
 
 local function OnInitialized()
@@ -373,7 +423,7 @@ local function OnInitialized()
         LeaveInspection(false)
     end)
 
-    RegisterRightClickMenuExit()
+    require("InspectItem.mod").RegisterRightClickMenuExit()
 
 end
 
