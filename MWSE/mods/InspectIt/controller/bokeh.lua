@@ -1,5 +1,5 @@
-local base = require("InspectItem.controller.base")
-local config = require("InspectItem.config").display
+local base = require("InspectIt.controller.base")
+local config = require("InspectIt.config").display
 local unit2m = 1.0 / 70.0 -- 1units/70meters
 
 ---@class Bokeh : IController
@@ -13,7 +13,7 @@ local defaults = {
     -- focalLength = 0,
 }
 
-local fx = "InspectItem/Bokeh"
+local fx = "InspectIt/Bokeh"
 local disabledShaders = { "Depth of Field" }
 
 ---@return Bokeh

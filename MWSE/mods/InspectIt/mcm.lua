@@ -1,7 +1,7 @@
 --- @param e modConfigReadyEventData
 local function OnModConfigReady(e)
-    local config = require("InspectItem.config")
-    local settings = require("InspectItem.settings")
+    local config = require("InspectIt.config")
+    local settings = require("InspectIt.settings")
     local template = mwse.mcm.createTemplate(settings.modName)
     template:saveOnClose(settings.configPath, config)
     template:register()
@@ -164,7 +164,7 @@ local function OnModConfigReady(e)
                 table = config.development,
             }),
             callback = function(self)
-                local logger = require("InspectItem.logger")
+                local logger = require("InspectIt.logger")
                 logger:setLogLevel(self.variable.value)
             end
         })
@@ -176,7 +176,7 @@ local function OnModConfigReady(e)
                 table = config.development,
             }),
             callback = function(self)
-                local logger = require("InspectItem.logger")
+                local logger = require("InspectIt.logger")
                 logger.logToConsole = config.development.logToConsole
             end
         })

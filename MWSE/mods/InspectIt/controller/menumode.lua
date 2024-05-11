@@ -1,4 +1,4 @@
-local base = require("InspectItem.controller.base")
+local base = require("InspectIt.controller.base")
 
 ---@class MenuMode : IController
 ---@field entered boolean
@@ -24,7 +24,7 @@ function this.Activate(self, params)
     -- or counter is better
     if not self.entered and not tes3ui.menuMode() then
         self.logger:debug("[Activate] enterMenuMode")
-        tes3ui.enterMenuMode("InspectItem")
+        tes3ui.enterMenuMode("InspectIt")
         self.entered = true
     end
 end

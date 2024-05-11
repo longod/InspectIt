@@ -35,7 +35,7 @@ local this = {}
 function this.new(params)
     ---@type IController
     local instance = {
-        logger = require("InspectItem.logger"),
+        logger = require("InspectIt.logger"),
     }
     if params then
         table.copymissing(instance, table.deepcopy(params))

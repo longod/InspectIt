@@ -1,15 +1,15 @@
-local config = require("InspectItem.config")
-local logger = require("InspectItem.logger")
-local settings = require("InspectItem.settings")
+local config = require("InspectIt.config")
+local logger = require("InspectIt.logger")
+local settings = require("InspectIt.settings")
 
 ---@type IController[]
 local controllers = {
-    require("InspectItem.controller.renderer").new(),
-    require("InspectItem.controller.bokeh").new(),
-    require("InspectItem.controller.visibility").new(),
-    require("InspectItem.controller.guide").new(),
-    require("InspectItem.controller.menumode").new(),
-    require("InspectItem.controller.inspector").new(),
+    require("InspectIt.controller.renderer").new(),
+    require("InspectIt.controller.bokeh").new(),
+    require("InspectIt.controller.visibility").new(),
+    require("InspectIt.controller.guide").new(),
+    require("InspectIt.controller.menumode").new(),
+    require("InspectIt.controller.inspector").new(),
 }
 
 --- listener
@@ -289,7 +289,7 @@ local function EnterInspection()
     logger:info("Enter Inspection: %s", context.target.name)
 
     local another, data = FindAnotherLook(context.target)
-    local status, description = pcall(function() return require("InspectItem.mod").FindTooltipsComplete(context.target, context.itemData) end)
+    local status, description = pcall(function() return require("InspectIt.mod").FindTooltipsComplete(context.target, context.itemData) end)
     if not status then
         logger:error("Failed to call Tooltips Complete: %s", tostring(description))
         description = nil
@@ -423,12 +423,12 @@ local function OnInitialized()
         LeaveInspection(false)
     end)
 
-    require("InspectItem.mod").RegisterRightClickMenuExit()
+    require("InspectIt.mod").RegisterRightClickMenuExit()
 
 end
 
 event.register(tes3.event.initialized, OnInitialized)
 
-require("InspectItem.mcm")
+require("InspectIt.mcm")
 
 --- @class tes3scriptVariables

@@ -1,4 +1,4 @@
-local settings = require("InspectItem.settings")
+local settings = require("InspectIt.settings")
 local config = nil ---@type Config
 
 ---@return Config

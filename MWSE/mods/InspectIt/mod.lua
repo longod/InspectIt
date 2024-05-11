@@ -1,4 +1,4 @@
-local settings = require("InspectItem.settings")
+local settings = require("InspectIt.settings")
 local this = {}
 function this.RegisterRightClickMenuExit()
     local RightClickMenuExit = include("mer.RightClickMenuExit")
@@ -18,6 +18,8 @@ function this.FindTooltipsComplete(target, itemData)
     if not tooltipData then
         return nil
     end
+    -- If this is run here before the original mod the first time, an invalid config will be generated.
+    -- But since it is executed in the original mod's main, it is usually not in that order.
     local config = mwse.loadConfig("tooltipsComplete")
     if not config then
         return nil

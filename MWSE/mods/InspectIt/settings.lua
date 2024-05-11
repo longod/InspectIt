@@ -1,13 +1,13 @@
 local this = {}
 this.modName = "Inspect It!"
-this.configPath = "InspectItem"
-this.menuName = "InspectItem:MenuInspection"
-this.helpLayerName = "InspectItem:MenuInspectionDescription"
-this.returnButtonName = "InspectItem:ReturnButton"
-this.returnEventName = "InspectItem:ReturnEvent"
-this.switchAnotherLookEventName = "InspectItem:SwitchAnotherLookEvent"
-this.resetPoseEventName = "InspectItem:ResetPoseEvent"
-this.i18n = mwse.loadTranslations("InspectItem")
+this.configPath = "InspectIt"
+this.menuName = "InspectIt:MenuInspection"
+this.helpLayerName = "InspectIt:MenuInspectionDescription"
+this.returnButtonName = "InspectIt:ReturnButton"
+this.returnEventName = "InspectIt:ReturnEvent"
+this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
+this.resetPoseEventName = "InspectIt:ResetPoseEvent"
+this.i18n = mwse.loadTranslations("InspectIt")
 
 ---@enum AnotherLookType
 this.anotherLookType = {
@@ -21,9 +21,9 @@ local defaultConfig = {
     input = {
         ---@type mwseKeyCombo
         inspect = {
-            keyCode = tes3.scanCode.tab --[[@as tes3.scanCode]],
-            isShiftDown = true,
-            isAltDown = true,
+            keyCode = tes3.scanCode.F2 --[[@as tes3.scanCode]],
+            isShiftDown = false,
+            isAltDown = false,
             isControlDown = false,
         },
         ---@type mwseKeyCombo
@@ -69,7 +69,7 @@ local defaultConfig = {
 
 ---@return Config
 function this.DefaultConfig()
-    return table.deepcopy(defaultConfig)
+    return defaultConfig
 end
 
 return this

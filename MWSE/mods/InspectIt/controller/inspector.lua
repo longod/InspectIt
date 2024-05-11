@@ -1,6 +1,6 @@
-local base = require("InspectItem.controller.base")
-local config = require("InspectItem.config").input
-local settings = require("InspectItem.settings")
+local base = require("InspectIt.controller.base")
+local config = require("InspectIt.config").input
+local settings = require("InspectIt.settings")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
@@ -478,22 +478,22 @@ end
 ---@return niNode
 local function SetupNode(offset)
     local pivot = niNode.new() -- pivot node
-    pivot.name = "InspectItem:Pivot"
+    pivot.name = "InspectIt:Pivot"
     -- If transparency is included, it may not work unless it is specified on a per material.
     local zBufferProperty = niZBufferProperty.new()
-    zBufferProperty.name = "InspectItem:DepthTestWrite"
+    zBufferProperty.name = "InspectIt:DepthTestWrite"
     zBufferProperty:setFlag(true, 0) -- test
     zBufferProperty:setFlag(true, 1) -- write
     pivot:attachProperty(zBufferProperty)
     -- No culling on the back face because the geometry of the part to be placed on the ground does not exist.
     local stencilProperty = niStencilProperty.new()
-    zBufferProperty.name = "InspectItem:NoCull"
+    zBufferProperty.name = "InspectIt:NoCull"
     stencilProperty.drawMode = 3 -- DRAW_BOTH
     pivot:attachProperty(stencilProperty)
     pivot.appCulled = false
 
     local root = niNode.new()
-    root.name = "InspectItem:Root"
+    root.name = "InspectIt:Root"
     root:attachChild(pivot)
     root.translation = tes3vector3.new(0, offset, 0)
     root.appCulled = false

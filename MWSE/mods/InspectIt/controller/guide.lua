@@ -1,6 +1,6 @@
-local base = require("InspectItem.controller.base")
-local config = require("InspectItem.config")
-local settings = require("InspectItem.settings")
+local base = require("InspectIt.controller.base")
+local config = require("InspectIt.config")
+local settings = require("InspectIt.settings")
 
 ---@class Guide : IController
 local this = {}

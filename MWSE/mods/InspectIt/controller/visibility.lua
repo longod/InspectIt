@@ -1,4 +1,4 @@
-local base = require("InspectItem.controller.base")
+local base = require("InspectIt.controller.base")
 
 ---@class Visibility : IController
 ---@field visibility {[string] : boolean}
