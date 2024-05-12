@@ -383,8 +383,6 @@ function this.SwitchAnotherLook(self)
                 for _, part in ipairs(data.parts) do
                     local bodypart = part.part
 
-                    -- TODO get pose from base file
-
                     -- no hieralchy
                     self.logger:debug(bodypart.mesh)
                     local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
@@ -434,10 +432,7 @@ function this.SwitchAnotherLook(self)
                         end
                     end
 
-
                     --self.another:attachChild(model)
-
-
 
                 end
                 -- TODO bounds and re-centering
@@ -589,7 +584,7 @@ function this.Activate(self, params)
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
 
-    model:update() -- FIXME trailer partiles gone. but currently thoses are glitched, so its ok.
+    model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
 
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
@@ -623,7 +618,7 @@ function this.Activate(self, params)
     local distance = params.offset
 
     -- centering
-    -- Some creatures appear to be offset off. Should skinning be considered?
+    -- FIXME Some creatures appear to be offset off. Should skinning be considered?
     local offset = (bounds.max + bounds.min) * -0.5
     self.logger:debug(tostring(bounds.max))
     self.logger:debug(tostring(bounds.min))

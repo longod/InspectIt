@@ -114,6 +114,44 @@ local function OnModConfigReady(e)
         })
     end
     do
+        local inspection = page:createCategory({
+            label = settings.i18n("mcm.inspection.category.label"),
+            description = settings.i18n("mcm.inspection.category.description"),
+        })
+        inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.inventory.label"),
+            description = settings.i18n("mcm.inspection.inventory.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "inventory",
+                table = config.inspection,
+            }),
+        })
+        inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.barter.label"),
+            description = settings.i18n("mcm.inspection.barter.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "barter",
+                table = config.inspection,
+            }),
+        })
+        inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.contents.label"),
+            description = settings.i18n("mcm.inspection.contents.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "contents",
+                table = config.inspection,
+            }),
+        })
+        inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.activatable.label"),
+            description = settings.i18n("mcm.inspection.activatable.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "activatable",
+                table = config.inspection,
+            }),
+        })
+    end
+    do
         local display = page:createCategory({
             label = settings.i18n("mcm.display.category.label"),
             description = settings.i18n("mcm.display.category.description"),
@@ -174,6 +212,18 @@ local function OnModConfigReady(e)
             callback = function(self)
                 local logger = require("InspectIt.logger")
                 logger:setLogLevel(self.variable.value)
+            end
+        })
+        dev:createOnOffButton({
+            label = settings.i18n("mcm.development.logToConsole.label"),
+            description = settings.i18n("mcm.development.logToConsole.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "logToConsole",
+                table = config.development,
+            }),
+            callback = function(self)
+                local logger = require("InspectIt.logger")
+                logger.logToConsole = config.development.logToConsole
             end
         })
     end

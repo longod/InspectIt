@@ -56,24 +56,23 @@ this.defaultConfig = {
         inversionY = false,
         inversionZ = false,
     },
-    target = {
-        item = true,
-        activation = true,
-        -- hover = true
-        -- inventry, barter, container, alchemy, enchant, item selector
+    inspection = {
+        inventory = true,
+        barter = true,
+        contents = true,
+        activatable = true,
+        -- cursorover = true,
     },
     display = {
         instruction = true,
         bokeh = true,
         recalculateBounds = true,
         tooltipsComplete = true,
-        -- apply book and scroll, journal
     },
     ---@class Config.Development
     development = {
         logLevel = "INFO",
-        -- logToConsole = false,
-        -- test = false,
+        logToConsole = false,
     }
 }
 

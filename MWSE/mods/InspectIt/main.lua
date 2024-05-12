@@ -85,7 +85,7 @@ local function CanInspection(target)
         [tes3.objectType.ammunition] = true,
         [tes3.objectType.apparatus] = true,
         [tes3.objectType.armor] = true,
-        [tes3.objectType.bodyPart] = true,
+        -- [tes3.objectType.bodyPart] = true,
         [tes3.objectType.book] = true,
         -- [tes3.objectType.cell] = true,
         [tes3.objectType.clothing] = true,
@@ -119,152 +119,6 @@ local function CanInspection(target)
     }
 
     return enabled[target.objectType] == true
-end
-
----@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
----@param down boolean
-local function PlayItemSound(target, down)
-    if not target then
-        return
-    end
-    -- TODO use Character Sound Overhaul data, but API is local.
-    local axeFix = tes3.isModActive("Axe Sound ID Fix.esp")
-    local downId = {
-        [tes3.objectType.ammunition] = "Item Ammo Down",
-        [tes3.objectType.apparatus] = "Item Apparatus Down",
-        [tes3.objectType.armor] = {
-            [tes3.armorWeightClass.light] = "Item Armor Light Down",
-            [tes3.armorWeightClass.medium] = "Item Armor Medium Down",
-            [tes3.armorWeightClass.heavy] = "Item Armor Heavy Down",
-        },
-        [tes3.objectType.bodyPart] = "Item Bodypart Down",
-        [tes3.objectType.book] = "Item Book Down",
-        [tes3.objectType.clothing] = {
-            [tes3.clothingSlot.amulet] = "Item Ring Down",
-            [tes3.clothingSlot.ring] = "Item Ring Down",
-            ["falllback"] = "Item Clothes Down",
-        },
-        [tes3.objectType.miscItem] = {
-            ["gold_001"] = "Item Gold Down",
-            ["gold_005"] = "Item Gold Down",
-            ["gold_010"] = "Item Gold Down",
-            ["gold_025"] = "Item Gold Down",
-            ["gold_100"] = "Item Gold Down",
-            ["gold_dae_cursed_001"] = "Item Gold Down",
-            ["gold_dae_cursed_005"] = "Item Gold Down",
-            ["lucky_coin"] = "Item Gold Down",
-            ["fallback"] = "Item Misc Down",
-        },
-        [tes3.objectType.ingredient] = "Item Ingredient Down",
-        [tes3.objectType.lockpick] = "Item Lockpick Down",
-        [tes3.objectType.alchemy] = "Item Potion Down",
-        [tes3.objectType.probe] = "Item Probe Down",
-        [tes3.objectType.repairItem] = "Item Repair Down",
-        [tes3.objectType.weapon] = {
-            [tes3.weaponType.shortBladeOneHand] = "Item Weapon Shortblade Down",
-            [tes3.weaponType.longBladeOneHand] = "Item Weapon Longblade Down",
-            [tes3.weaponType.longBladeTwoClose] = "Item Weapon Longblade Down",
-            [tes3.weaponType.bluntOneHand] = "Item Weapon Blunt Down",
-            [tes3.weaponType.bluntTwoClose] = "Item Weapon Blunt Down",
-            [tes3.weaponType.bluntTwoWide] = "Item Weapon Blunt Down",
-            [tes3.weaponType.spearTwoWide] = "Item Weapon Spear Down",
-            [tes3.weaponType.axeOneHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Down",
-            [tes3.weaponType.axeTwoHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Down",
-            [tes3.weaponType.marksmanBow] = "Item Weapon Bow Down",
-            [tes3.weaponType.marksmanCrossbow] = "Item Weapon Crossbow Down",
-            --[tes3.weaponType.marksmanThrown] = "Item Weapon TEMP Down",
-            --[tes3.weaponType.arrow] = "Item Weapon TEMP Down",
-            --[tes3.weaponType.bolt] = "Item Weapon TEMP Down",
-        },
-    }
-    local upId = {
-        [tes3.objectType.ammunition] = "Item Ammo Up",
-        [tes3.objectType.apparatus] = "Item Apparatus Up",
-        [tes3.objectType.armor] = {
-            [tes3.armorWeightClass.light] = "Item Armor Light Up",
-            [tes3.armorWeightClass.medium] = "Item Armor Medium Up",
-            [tes3.armorWeightClass.heavy] = "Item Armor Heavy Up",
-        },
-        [tes3.objectType.bodyPart] = "Item Bodypart Up",
-        [tes3.objectType.book] = "Item Book Up",
-        [tes3.objectType.clothing] = {
-            [tes3.clothingSlot.amulet] = "Item Ring Up",
-            [tes3.clothingSlot.ring] = "Item Ring Up",
-            ["falllback"] = "Item Clothes Up",
-        },
-        [tes3.objectType.miscItem] = {
-            ["gold_001"] = "Item Gold Up",
-            ["gold_005"] = "Item Gold Up",
-            ["gold_010"] = "Item Gold Up",
-            ["gold_025"] = "Item Gold Up",
-            ["gold_100"] = "Item Gold Up",
-            ["gold_dae_cursed_001"] = "Item Gold Up",
-            ["gold_dae_cursed_005"] = "Item Gold Up",
-            ["fallback"] = "Item Misc Up",
-        },
-        [tes3.objectType.ingredient] = "Item Ingredient Up",
-        [tes3.objectType.lockpick] = "Item Lockpick Up",
-        [tes3.objectType.alchemy] = "Item Potion Up",
-        [tes3.objectType.probe] = "Item Probe Up",
-        [tes3.objectType.repairItem] = "Item Repair Up",
-        [tes3.objectType.weapon] = {
-            [tes3.weaponType.shortBladeOneHand] = "Item Weapon Shortblade Up",
-            [tes3.weaponType.longBladeOneHand] = "Item Weapon Longblade Up",
-            [tes3.weaponType.longBladeTwoClose] = "Item Weapon Longblade Up",
-            [tes3.weaponType.bluntOneHand] = "Item Weapon Blunt Up",
-            [tes3.weaponType.bluntTwoClose] = "Item Weapon Blunt Up",
-            [tes3.weaponType.bluntTwoWide] = "Item Weapon Blunt Up",
-            [tes3.weaponType.spearTwoWide] = "Item Weapon Spear Up",
-            [tes3.weaponType.axeOneHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Up",
-            [tes3.weaponType.axeTwoHand] = axeFix and "Item Weapon Axe Down" or "Item Weapon Blunt Up",
-            [tes3.weaponType.marksmanBow] = "Item Weapon Bow Up",
-            [tes3.weaponType.marksmanCrossbow] = "Item Weapon Crossbow Up",
-            --[tes3.weaponType.marksmanThrown] = "Item Weapon TEMP Up",
-            --[tes3.weaponType.arrow] = "Item Weapon TEMP Up",
-            --[tes3.weaponType.bolt] = "Item Weapon TEMP Up",
-        },
-    }
-    local primary = down and downId or upId
-    local id = primary[target.objectType]
-    if target.objectType == tes3.objectType.armor then
-        ---@cast target tes3armor
-        local sub = id[target.weightClass]
-        if sub then
-            id = sub
-        end
-    elseif target.objectType == tes3.objectType.clothing then
-        ---@cast target tes3clothing
-        local sub = id[target.slot]
-        if sub then
-            id = sub
-        else
-            id = id["fallback"]
-        end
-    elseif target.objectType == tes3.objectType.miscItem then
-        ---@cast target tes3misc
-        local sub = id[target.id:lower()]
-        if sub then
-            id = sub
-        else
-            id = id["fallback"]
-        end
-    elseif target.objectType == tes3.objectType.weapon then
-        ---@cast target tes3weapon
-        local sub = id[target.type]
-        if sub then
-            id = sub
-        else
-            id = id["fallback"]
-        end
-    end
-    -- door has open/close sound
-    if not id or type(id) == "table" then
-        -- fallback
-        return
-    end
-    logger:debug("play sound: %",id)
-    local sound = tes3.getSound(id)
-    sound:play()
 end
 
 ---@param menuExit boolean
@@ -319,7 +173,6 @@ local function EnterInspection()
     for _, controller in ipairs(controllers) do
         controller:Activate(params)
     end
-    -- PlayItemSound(context.target, false) -- controller
     context.target = nil
     context.itemData = nil
     context.enable = true
@@ -373,12 +226,33 @@ local function OnKeyDown(e)
         if TestInput(e, config.input.inspect) then
             if not context.target then
                 if tes3.menuMode() then
-                    -- TODO get cursor obj
+                    -- get cursor obj
+                    local cameraData = tes3.worldController.worldCamera.cameraData
+                    local fovX = mge.camera.fov or cameraData.fov
+                    local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
+                    local tan = math.tan(math.rad(fovX) * 0.5)
+                    local cursor = tes3.getCursorPosition():copy()
+                    local ndcPos = tes3vector2.new(cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2)
+                    logger:debug("ndcPos: %s", tostring(ndcPos))
+                    -- TODO we need the inversed projection!
+                    --logger:debug("world dir: %s", tostring(worldDir))
+                    -- local eyeDir = tes3.getPlayerEyeVector()
+                    -- eyeDir:normalize()
+                    -- logger:debug("eye dir: %s", tostring(eyeDir))
+                    -- logger:debug("eye pos: %s", tostring(eyePos))
+                    local eyePos = tes3.getPlayerEyePosition()
+                    local distance = tes3.getPlayerActivationDistance()
+                    -- local hit = tes3.rayTest({ position = eyePos, direction = worldDir, maxDistance = distance })
+                    -- if hit and hit.reference then
+                    --     tes3.messageBox(hit.reference.object.name)
+                    -- end
                 else
-                    local ref = tes3.getPlayerTarget()
-                    if ref and ref.object then     -- and more conditions
-                        context.target = ref.object
-                        context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
+                    if config.inspection.activatable then
+                        local ref = tes3.getPlayerTarget()
+                        if ref and ref.object then
+                            context.target = ref.object
+                            context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
+                        end
                     end
                 end
             end
@@ -394,7 +268,19 @@ end
 
 ---@param e itemTileUpdatedEventData
 local function OnItemTileUpdated(e)
-    -- or just tooltip callback
+    if not e.menu then
+        return
+    end
+    local allowed = {
+        ["MenuInventory"] = config.inspection.inventory,
+        ["MenuBarter"] = config.inspection.barter,
+        ["MenuContents"] = config.inspection.contents,
+    }
+    if not allowed[e.menu.name] then
+        -- Selector does not seem to trigger, but even if it does not exist, it is ignored.
+        return
+    end
+
     e.element:registerAfter(tes3.uiEvent.mouseOver,
         ---@param ev tes3uiEventData
         function(ev)

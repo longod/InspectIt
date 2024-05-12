@@ -1,8 +1,10 @@
 # Inspect It!
 A variety of objects can be inspected.
 
+## Control
+- **F2**: toggle 
 
-# Mod Compatibility
+## Mod Compatibility
 - [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458)
 - [Tooltips Complete](https://www.nexusmods.com/morrowind/mods/46842)
 - [Weapon Sheathing](https://www.nexusmods.com/morrowind/mods/46069)
