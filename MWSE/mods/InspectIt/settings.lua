@@ -2,6 +2,7 @@ local this = {}
 this.modName = "Inspect It!"
 this.configPath = "InspectIt"
 this.guideMenu = "InspectIt:MenuInspection"
+this.guideMenuID = tes3ui.registerID(this.guideMenu)
 this.returnButtonName = "InspectIt:ReturnButton"
 this.returnEventName = "InspectIt:ReturnEvent"
 this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
@@ -11,7 +12,7 @@ this.i18n = mwse.loadTranslations("InspectIt")
 ---@return boolean
 function this.OnOtherMenu()
     local top = tes3ui.getMenuOnTop()
-    if top and top.name ~= this.guideMenu then
+    if top and top.id ~= this.guideMenuID then
         return true
     end
     return false

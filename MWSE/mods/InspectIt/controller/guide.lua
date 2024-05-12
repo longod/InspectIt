@@ -1,11 +1,7 @@
 local base = require("InspectIt.controller.base")
 local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
-
-local guideMenu = tes3ui.registerID(settings.guideMenu)
 local helpLayerMenu = tes3ui.registerID("InspectIt:MenuInspectionDescription")
-
-
 
 ---@class Guide : IController
 local this = {}
@@ -71,7 +67,7 @@ local function OnEnterFrame(e)
 end
 
 local function Destroy()
-    local menu = tes3ui.findMenu(guideMenu)
+    local menu = tes3ui.findMenu(settings.guideMenuID)
     if menu then
         menu:destroy()
     end
@@ -95,7 +91,7 @@ function this.Activate(self, params)
 
     -- This modal menu is a must. If there is not a single modal menu visible on the screen, right-clicking will cause all menus to close and return.
     -- This causes unexpected screen transitions and glitches. Especially in Barter.
-    local menu = tes3ui.createMenu({ id = guideMenu, dragFrame = false, fixedFrame = true, modal = true })
+    local menu = tes3ui.createMenu({ id = settings.guideMenu, dragFrame = false, fixedFrame = true, modal = true })
     menu:destroyChildren()
     menu.flowDirection = tes3.flowDirection.topToBottom
     menu.absolutePosAlignX = 1.0 - offset

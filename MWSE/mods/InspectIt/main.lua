@@ -27,7 +27,7 @@ local function FindAnotherLook(target)
     if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
         -- Body Parts
         ---@cast target tes3armor|tes3clothing
-        --[[ -- under researching
+        --[[ -- TODO under researching
         if tes3.player and tes3.player.object and target.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = target.parts
@@ -281,7 +281,6 @@ local function LeaveInspection(menuExit)
     return false
 end
 
-
 ---@return boolean
 local function EnterInspection()
     if context.enable or not context.target then
@@ -295,6 +294,16 @@ local function EnterInspection()
         context.target = nil
         context.itemData = nil
         return false
+    end
+    -- picking a item
+    local cursor = tes3ui.findHelpLayerMenu("CursorIcon")
+    if cursor then
+        local tile = cursor:getPropertyObject("MenuInventory_Thing", "tes3inventoryTile")
+        if tile then
+            context.target = nil
+            context.itemData = nil
+            return false
+        end
     end
     logger:info("Enter Inspection: %s", context.target.name)
 

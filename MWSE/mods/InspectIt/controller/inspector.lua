@@ -295,8 +295,10 @@ function this.OnEnterFrame(self, e)
         -- local euler = self.root.rotation:toEulerXYZ():copy()
         -- tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
 
+        -- TODO play controllers, but those does not work.
         -- updateTime = updateTime  + e.delta
-        self.root:update({ controllers = true })
+        --self.root:update({ controllers = true })
+        self.root:update()
         self.root:updateEffects()
     end
 end
@@ -546,11 +548,10 @@ function this.Activate(self, params)
 
     local bounds = model:createBoundingBox():copy()
 
-    -- vertex only bounds
-    -- more tight bounds, but possible too heavy.
-    ----[[
     model:update() -- FIXME trailer partiles gone. but currently thoses are glitched, so its ok.
     if config.display.recalculateBounds then
+        -- vertex only bounds
+        -- more tight bounds, but possible too heavy.
         self.logger:debug(tostring(bounds.max))
         self.logger:debug(tostring(bounds.min))
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
@@ -573,7 +574,6 @@ function this.Activate(self, params)
             end
         end)
     end
-    --]]
 
     self.anotherData = params.another
 
@@ -632,9 +632,9 @@ function this.Activate(self, params)
         -- depth is maximum or height is minimum, y-up
         -- it seems that area ratio would be a better result.
         if imax == 1 or imin == 2 then
-            local orientation = tes3vector3.new(-90, 0, 0)
+            local rotation = tes3vector3.new(-90, 0, 0)
             local rot = tes3matrix33.new()
-            rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
+            rot:fromEulerXYZ(math.rad(rotation.x), math.rad(rotation.y), math.rad(rotation.z))
             root.rotation = root.rotation * rot:copy()
         end
     end
