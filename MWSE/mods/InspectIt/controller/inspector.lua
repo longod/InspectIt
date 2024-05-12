@@ -112,6 +112,7 @@ end
 ---@field zoomStart number
 ---@field zoomEnd number
 ---@field zoomTime number
+---@field zoomMax number
 ---@field original niNode?
 ---@field another niNode?
 ---@field anotherData? AnotherLookData
@@ -130,6 +131,7 @@ local defaults = {
     zoomStart = 1,
     zoomEnd = 1,
     zoomTime = 0,
+    zoomMax = 2,
     original = nil,
     another = nil,
     anotherData = nil,
@@ -240,9 +242,8 @@ function this.OnEnterFrame(self, e)
             -- update current zooming
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self.zoomStart = scale
-            self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, 2)
+            self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, self.zoomMax)
             self.zoomTime = 0
-            -- TODO consider distance to near place on actiavtion
         end
 
         if self.zoomTime < zoomDuration then
@@ -506,7 +507,7 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance)
     local fovX = cameraData.fov
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
-    local width = tan * math.max(distance - cameraData.nearPlaneDistance, cameraData.nearPlaneDistance)
+    local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1)
     local height = width * aspectRatio
     -- conservative
     local screenSize = math.min(width, height)
@@ -545,10 +546,12 @@ function this.Activate(self, params)
     end
 
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-
-    local bounds = model:createBoundingBox():copy()
+    model.translation = tes3vector3.new(0,0,0)
+    model.scale = 1
 
     model:update() -- FIXME trailer partiles gone. but currently thoses are glitched, so its ok.
+
+    local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
         -- vertex only bounds
         -- more tight bounds, but possible too heavy.
@@ -557,7 +560,7 @@ function this.Activate(self, params)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
         foreach(model, function(node)
-            if node:isInstanceOfType(ni.type.NiTriShape) then
+            if node:isOfType(ni.type.NiTriShape) then
                 ---@cast node niTriShape
                 local data = node.data
                 -- transformed? maybe no.
@@ -580,6 +583,7 @@ function this.Activate(self, params)
     local distance = params.offset
 
     -- centering
+    -- Some creatures appear to be offset off. Should skinning be considered?
     local offset = (bounds.max + bounds.min) * -0.5
     self.logger:debug(tostring(bounds.max))
     self.logger:debug(tostring(bounds.min))
@@ -661,6 +665,17 @@ function this.Activate(self, params)
     self.zoomEnd = 1
     self.zoomTime = zoomDuration
 
+    -- zoom limitation
+    local extents = (bounds.max - bounds.min) * 0.5 * self.baseScale
+    self.logger:debug(tostring(extents))
+    local halfLength = extents:length()
+    -- halfLength = math.max(extents.x, extents.y, extents.z, 0)
+    -- Offset because it is clipped before the near clip for some reason.
+    local clipOffset = 3
+    local limitScale = math.max(distance - (cameraData.nearPlaneDistance + clipOffset), cameraData.nearPlaneDistance) / math.max(halfLength, math.fepsilon)
+    self.logger:debug("halfLength %f, limitScale %f", halfLength, limitScale)
+    self.zoomMax = math.max(limitScale, 1)
+    -- self.zoomMax = 2
 
     cameraRoot:attachChild(root)
     cameraRoot:update()
