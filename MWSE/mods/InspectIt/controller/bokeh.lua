@@ -4,13 +4,13 @@ local unit2m = 1.0 / 70.0 -- 1units/70meters
 
 ---@class Bokeh : IController
 ---@field shader mgeShaderHandle?
+---@field focalLength number
 local this = {}
 setmetatable(this, { __index = base })
 
 ---@type Bokeh
 local defaults = {
-    -- blur = 0,
-    -- focalLength = 0,
+    focalLength = 1,
 }
 
 local fx = "InspectIt/Bokeh"
@@ -23,6 +23,13 @@ function this.new()
     ---@cast instance Bokeh
 
     return instance
+end
+
+---@param self Bokeh
+---@param value number
+function this.SetFocalLength(self, value)
+    self.focalLength = math.clamp(value, 0, 2)
+    self.shader["focal_length"] = self.focalLength
 end
 
 ---@param self Bokeh
@@ -42,6 +49,7 @@ function this.Activate(self, params)
     if self.shader then
         self.shader.enabled = true
         self.shader["focus_distance"] = params.offset * unit2m
+        self:SetFocalLength(1.0)
     end
 end
 

@@ -31,13 +31,14 @@ static const float fpa = 10.0; // accomodation, dpt
 
 static const float pupil = 0.006; // pupil diameter, m
 
-float blur_radius = 0.273; // base blur radius;
+static const float blur_radius = 0.273; // base blur radius;
 // higher values mean more blur when out of DoF and shorter DoF
 static const float blur_falloff = 2.0; // More means more blur and less respect for edges
 static const float R = 6.0; // maximum blur radius in pixels
 static float Rfixed = R / (1280 * rcpres.x); // standardize blur across resolutions
 
 float focus_distance = 0.0f;
+float focal_length = 1.0f; // just blur strength
 // ** END OF
 // **
 
@@ -90,7 +91,7 @@ float4 dof(float2 tex : TEXCOORD) : COLOR0
     float savemyhands = smoothstep(0.568, 0.781, z);
     
     float fpf = clamp(1 / s + fr, fp, fp + fpa);
-    float c = pupil * (fr - fpf + 1 / z) / fr / k * blur_radius;
+    float c = pupil * (fr - fpf + 1 / z) / fr / k * blur_radius * focal_length;
     float fog = fogoffset * saturate(z / (4 * fogrange * unit2m));
     
     c = min(abs(c / Rfixed) + fog, 1) * savemyhands;

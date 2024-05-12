@@ -538,7 +538,7 @@ end
 ---@param ratio number
 ---@return number
 function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ratio)
-    local fovX = mgeFov -- or cameraData.fov
+    local fovX = mgeFov or cameraData.fov
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
     local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * ratio
@@ -558,11 +558,11 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ra
 
     local scale = screenSize / boundsSize
 
-    self.logger:debug("MGE near: %f, fov: %f", mge.camera.nearRenderDistance, mge.camera.fov)
+    self.logger:debug("MGE near: %f, fov: %f", mge.camera.nearRenderDistance, mgeFov)
     self.logger:debug("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
         cameraData.fov)
     self.logger:debug("viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
-    self.logger:debug("distant width: %f, height: %f", width, height)
+    self.logger:debug("distant width: %f, height: %f, fovX: %f", width, height, fovX)
     self.logger:debug("fitting scale: %f", scale)
     return scale
 end

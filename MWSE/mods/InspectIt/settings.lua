@@ -1,5 +1,7 @@
 local this = {}
-this.modName = "Inspect It!"
+this.metadata = toml.loadFile("Data Files\\InspectIt-metadata.toml") ---@type MWSE.Metadata?
+this.modName = this.metadata.package.name
+this.version = this.metadata.package.version
 this.configPath = "InspectIt"
 this.guideMenu = "InspectIt:MenuInspection"
 this.guideMenuID = tes3ui.registerID(this.guideMenu)
