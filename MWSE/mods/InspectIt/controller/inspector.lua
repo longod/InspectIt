@@ -7,6 +7,7 @@ local angleThreshold = 0 -- pixel
 local velocityEpsilon = 0.000001
 local friction = 0.1     -- Attenuation with respect to velocity
 local resistance = 3.0   -- Attenuation with respect to time
+local fittingRatio = 0.9
 
 ---@type {[tes3.activeBodyPart] : string? }
 local sockets = {
@@ -44,25 +45,25 @@ local sockets = {
 local function GetOrientation(object)
     local orientations = {
         -- [tes3.objectType.activator] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0),   -- fixed
-        [tes3.objectType.ammunition] = tes3vector3.new(0, 0, -90),
-        [tes3.objectType.apparatus] = tes3vector3.new(0, 0, 0), -- fixed
-        -- [tes3.objectType.armor] = tes3vector3.new(-90, 0, 0), -- It's not aligned. It's a mess.
-        [tes3.objectType.bodyPart] = tes3vector3.new(0, 0, 0), -- fixed?
+        [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.ammunition] = tes3vector3.new(-90, 0, -90),
+        [tes3.objectType.apparatus] = tes3vector3.new(0, 0, 0),
+        -- [tes3.objectType.armor] = tes3vector3.new(0, 0, 0), -- It's not aligned. It's a mess.
+        [tes3.objectType.bodyPart] = tes3vector3.new(0, 0, 0),
         [tes3.objectType.book] = tes3vector3.new(-90, 0, 0),
         -- [tes3.objectType.cell] = tes3vector3.new(0, 0, 0),
-        --[tes3.objectType.clothing] = tes3vector3.new(-90, 0, 0),
-        [tes3.objectType.container] = tes3vector3.new(0, 0, 0), -- fixed
-        [tes3.objectType.creature] = tes3vector3.new(0, 0, 180),
-        [tes3.objectType.door] = tes3vector3.new(0, 0, -90),
+        --[tes3.objectType.clothing] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.container] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.creature] = tes3vector3.new(0, 0, -180),
+        [tes3.objectType.door] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.enchantment] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.ingredient] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.land] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.landTexture] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.leveledCreature] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.leveledItem] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.light] = tes3vector3.new(0, 0, 0), -- fixed
-        [tes3.objectType.lockpick] = tes3vector3.new(-90, 0, 0),
+        [tes3.objectType.light] = tes3vector3.new(0, 0, 0),
+        [tes3.objectType.lockpick] = tes3vector3.new(-90, 0, -90),
         -- [tes3.objectType.magicEffect] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.miscItem] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.mobileActor] = tes3vector3.new(0, 0, 0),
@@ -71,30 +72,64 @@ local function GetOrientation(object)
         -- [tes3.objectType.mobilePlayer] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.mobileProjectile] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.mobileSpellProjectile] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.npc] = tes3vector3.new(0, 0, 180), -- fixed
-        [tes3.objectType.probe] = tes3vector3.new(-90, 0, 0),
+        [tes3.objectType.npc] = tes3vector3.new(0, 0, -180),
+        [tes3.objectType.probe] = tes3vector3.new(-90, 0, -90),
         -- [tes3.objectType.reference] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.region] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.repairItem] = tes3vector3.new(-90, 0, 0),
+        [tes3.objectType.repairItem] = tes3vector3.new(-90, 0, -90),
         -- [tes3.objectType.spell] = tes3vector3.new(0, 0, 0),
         -- [tes3.objectType.static] = tes3vector3.new(0, 0, 0),
-        [tes3.objectType.weapon] = tes3vector3.new(-90, 0, 0),
+        [tes3.objectType.weapon] = tes3vector3.new(-90, 0, -90),
     }
-
-    -- TODO weapon, throwing
 
     if object.objectType == tes3.objectType.armor then
         ---@cast object tes3armor
-        -- object.slot
-        -- isLeftPart
+        local slot = {
+            [tes3.armorSlot.boots] = tes3vector3.new(0, 0, 0),
+            [tes3.armorSlot.cuirass] = tes3vector3.new(-90, 0, 0),
+            [tes3.armorSlot.greaves] = tes3vector3.new(-90, 0, 0),
+            [tes3.armorSlot.helmet] = tes3vector3.new(0, 0, 0),
+            [tes3.armorSlot.leftBracer] = tes3vector3.new(0, 0, 180),
+            [tes3.armorSlot.leftGauntlet] = tes3vector3.new(0, 0, 180),
+            [tes3.armorSlot.leftPauldron] = tes3vector3.new(0, 0, 180),
+            [tes3.armorSlot.rightBracer] = tes3vector3.new(0, 0, 0),
+            [tes3.armorSlot.rightGauntlet] = tes3vector3.new(0, 0, 0),
+            [tes3.armorSlot.rightPauldron] = tes3vector3.new(0, 0, 0),
+            [tes3.armorSlot.shield] = tes3vector3.new(-90, 0, 0),
+        }
+        local o = slot[object.slot]
+        if o then
+            return o
+        end
     elseif object.objectType == tes3.objectType.clothing then
         ---@cast object tes3clothing
-        -- object.slot
-        -- isLeftPart
+        local slot = {
+            [tes3.clothingSlot.amulet] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.belt] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.leftGlove] = tes3vector3.new(-90, 0, 180),
+            [tes3.clothingSlot.pants] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.rightGlove] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.ring] = tes3vector3.new(0, 0, 0),
+            [tes3.clothingSlot.robe] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.shirt] = tes3vector3.new(-90, 0, 0),
+            [tes3.clothingSlot.shoes] = tes3vector3.new(0, 0, 0),
+            [tes3.clothingSlot.skirt] = tes3vector3.new(-90, 0, 0),
+        }
+        local o = slot[object.slot]
+        if o then
+            return o
+        end
     elseif object.objectType == tes3.objectType.bodyPart then
         ---@cast object tes3bodyPart
-        -- object.part
-        -- object.partType
+    elseif object.objectType == tes3.objectType.weapon then
+        ---@cast object tes3weapon
+        local weaponType = {
+            [tes3.weaponType.marksmanCrossbow] = tes3vector3.new(0, 0, -90),
+        }
+        local o = weaponType[object.type]
+        if o then
+            return o
+        end
     end
     return orientations[object.objectType]
 end
@@ -440,7 +475,9 @@ function this.SwitchAnotherLook(self)
             end
             self.anotherLook = not self.anotherLook
 
-            -- TODO self.SetScale() for particle
+            -- apply same scale for particle
+            local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
+            self:SetScale(scale)
             -- just swap, no adjust centering
             self.pivot:update()
             self.pivot:updateEffects()
@@ -502,12 +539,14 @@ end
 ---@param bounds tes3boundingBox
 ---@param cameraData tes3worldControllerRenderCameraData
 ---@param distance number
+---@param mgeFov number
+---@param ratio number
 ---@return number
-function this.ComputeFittingScale(self, bounds, cameraData, distance)
-    local fovX = cameraData.fov
+function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ratio)
+    local fovX = mgeFov -- or cameraData.fov
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
-    local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1)
+    local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * ratio
     local height = width * aspectRatio
     -- conservative
     local screenSize = math.min(width, height)
@@ -519,15 +558,16 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance)
     -- screenSize = math.sqrt(width * width + height * height)
 
     -- moderation
-    boundsSize = size:length() -- 3d diagonal
-    screenSize = math.max(width, height)
+    -- boundsSize = size:length() -- 3d diagonal
+    -- screenSize = math.max(width, height)
 
     local scale = screenSize / boundsSize
 
-    self.logger:trace("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
-        cameraData.fov)                                                                                                        -- or world fov?
-    self.logger:trace("viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
-    self.logger:trace("distant width: %f, height: %f", width, height)
+    self.logger:debug("MGE near: %f, fov: %f", mge.camera.nearRenderDistance, mge.camera.fov)
+    self.logger:debug("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
+        cameraData.fov)
+    self.logger:debug("viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
+    self.logger:debug("distant width: %f, height: %f", width, height)
     self.logger:debug("fitting scale: %f", scale)
     return scale
 end
@@ -633,10 +673,11 @@ function this.Activate(self, params)
         local imin = my + mz;
         self.logger:debug("axis %d, %d", imax, imin)
 
-        -- depth is maximum or height is minimum, y-up
+
         -- it seems that area ratio would be a better result.
-        if imax == 1 or imin == 2 then
-            local rotation = tes3vector3.new(-90, 0, 0)
+        if imax == 1 or imin == 2 then -- depth is maximum or height is minimum, y-up
+        -- if imax == 1 then -- just depth is maximum
+            local rotation = tes3vector3.new(-60, 0, 0)
             local rot = tes3matrix33.new()
             rot:fromEulerXYZ(math.rad(rotation.x), math.rad(rotation.y), math.rad(rotation.z))
             root.rotation = root.rotation * rot:copy()
@@ -653,7 +694,7 @@ function this.Activate(self, params)
     local camera = tes3.worldController.armCamera
     local cameraRoot = camera.cameraRoot
     local cameraData = camera.cameraData
-    local scale = self:ComputeFittingScale(bounds, cameraData, distance)
+    local scale = self:ComputeFittingScale(bounds, cameraData, distance, mge.camera.fov, fittingRatio)
 
     self.baseScale = root.scale
     self:SetScale(scale)
