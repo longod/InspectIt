@@ -16,7 +16,7 @@ function this.new()
     setmetatable(instance, { __index = this })
     ---@cast instance Renderer
 
-    instance.logger:info("Initial pauseRenderingInMenus: %s", tostring(mge.render.pauseRenderingInMenus))
+    instance.logger:debug("Initial pauseRenderingInMenus: %s", tostring(mge.render.pauseRenderingInMenus))
     instance.pauseRenderingInMenus = mge.render.pauseRenderingInMenus
 
     return instance

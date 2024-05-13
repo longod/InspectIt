@@ -177,6 +177,7 @@ function this.Activate(self, params)
 
     -- on mouse fade? help layer does not trigger over, leave event
     if config.display.tooltipsComplete and params.description then
+        self.logger:debug("create description")
         local help = tes3ui.createHelpLayerMenu({ id = helpLayerMenu })
         help:destroyChildren()
         help.flowDirection = tes3.flowDirection.topToBottom

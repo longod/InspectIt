@@ -1,11 +1,11 @@
 return {
-    ["messageBox.unsupport.text"] = "Inspect It!: It is not yet supported for inspection.",
+    ["messageBox.unsupport.text"] = "[%{modName}] It is not yet supported for inspection.",
     ["guide.rotate.text"] = "Rotate: Mouse drag",
     ["guide.zoom.text"] = "Zoom: Mouse wheel",
     ["guide.another.text"] = "Switch another",
     ["guide.reset.text"] = "Reset pose",
     ["guide.return.text"] = "Return",
-    ["mcm.sidebar.info"] = "A variety of objects can be inspected.",
+    ["mcm.sidebar.info"] = "You can inspect an object by pressing the assigned key binding when you mouseover an item in the inventory or you look at an activatable object with the crosshair.",
     ["mcm.input.category.label"] = "Input",
     ["mcm.input.category.description"] = "Configure settings for input.",
     ["mcm.input.inspect.label"] = "Inspect",

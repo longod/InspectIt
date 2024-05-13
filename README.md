@@ -1,5 +1,5 @@
 # Inspect It!
-This mod allows for a variety of objects can be inspected.
+This mod allow you to inspect a variety of objects.
 
 ![Inspect It!](InspectIt.gif)
 
@@ -28,6 +28,7 @@ This mod allows for a variety of objects can be inspected.
 ## Known Issues and Future Work
 - Animations are not played. Especially particles.
 - Trailer-type particles are not displayed.
-- Another look at armor and clothing with body parts is under research. This also applies to NPCs.
+- If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
 - For some objects, the initial orientation or position is not appropriate.
+- Another look at armor and clothing with body parts is under research. This also applies to NPCs.
 - Inspection of mouseovered object in the world during the menu is not yet supported.

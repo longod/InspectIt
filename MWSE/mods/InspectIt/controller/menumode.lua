@@ -22,10 +22,14 @@ end
 ---@param params Activate.Params
 function this.Activate(self, params)
     -- or counter is better
-    if not self.entered and not tes3ui.menuMode() then
-        self.logger:debug("[Activate] enterMenuMode")
-        tes3ui.enterMenuMode("InspectIt")
-        self.entered = true
+    if not self.entered then
+        if not tes3ui.menuMode() then
+            self.logger:debug("[Activate] enterMenuMode")
+            tes3ui.enterMenuMode("InspectIt")
+            self.entered = true
+        end
+    else
+        self.logger:warn("[Activate] Previous deactivation is not successful?")
     end
 end
 
@@ -33,8 +37,8 @@ end
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
     if self.entered then
-        tes3ui.leaveMenuMode()
         self.entered = false
+        tes3ui.leaveMenuMode()
         self.logger:debug("[Deactivate] leaveMenuMode")
     end
 end

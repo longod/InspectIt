@@ -7,38 +7,7 @@ local angleThreshold = 0 -- pixel
 local velocityEpsilon = 0.000001
 local friction = 0.1     -- Attenuation with respect to velocity
 local resistance = 3.0   -- Attenuation with respect to time
-local fittingRatio = 0.9
-
----@type {[tes3.activeBodyPart] : string? }
-local sockets = {
-    [tes3.activeBodyPart.head]          = "Bip01 Head",
-    [tes3.activeBodyPart.hair]          = "Head",
-    [tes3.activeBodyPart.neck]          = "Bip01 Neck",
-    [tes3.activeBodyPart.chest]         = "Bip01 Spine2",
-    [tes3.activeBodyPart.groin]         = "Bip01 Spine",
-    [tes3.activeBodyPart.skirt]         = nil,
-    [tes3.activeBodyPart.rightHand]     = "Bip01 R Hand",
-    [tes3.activeBodyPart.leftHand]      = "Bip01 L Hand",
-    [tes3.activeBodyPart.rightWrist]    = "Right Wrist",
-    [tes3.activeBodyPart.leftWrist]     = "Left Wrist",
-    [tes3.activeBodyPart.shield]        = nil,
-    [tes3.activeBodyPart.rightForearm]  = "Bip01 R Forearm",
-    [tes3.activeBodyPart.leftForearm]   = "Bip01 L Forearm",
-    [tes3.activeBodyPart.rightUpperArm] = "Bip01 R UpperArm",
-    [tes3.activeBodyPart.leftUpperArm]  = "Bip01 L UpperArm",
-    [tes3.activeBodyPart.rightFoot]     = "Bip01 R Foot",
-    [tes3.activeBodyPart.leftFoot]      = "Bip01 L Foot",
-    [tes3.activeBodyPart.rightAnkle]    = "Right Ankle",
-    [tes3.activeBodyPart.leftAnkle]     = "Left Ankle",
-    [tes3.activeBodyPart.rightKnee]     = "Bip01 R Calf",
-    [tes3.activeBodyPart.leftKnee]      = "Bip01 L Calf",
-    [tes3.activeBodyPart.rightUpperLeg] = "Bip01 R Thigh",
-    [tes3.activeBodyPart.leftUpperLeg]  = "Bip01 L Thigh",
-    [tes3.activeBodyPart.rightPauldron] = "Bip01 R Clavicle",
-    [tes3.activeBodyPart.leftPauldron]  = "Bip01 L Clavicle",
-    [tes3.activeBodyPart.weapon]        = nil,
-    [tes3.activeBodyPart.tail]          = "Bip01 Tail",
-}
+local fittingRatio = 0.9 -- Ratio to fit the screen
 
 ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
 ---@return tes3vector3?
@@ -235,7 +204,7 @@ function this.SetScale(self, scale)
     local prev = self.root.scale
     local newScale = math.max(self.baseScale * scale, math.fepsilon)
     self.root.scale = newScale
-    self.logger:trace("zoom %f from %f", scale, prev)
+    self.logger:trace("Zoom %f -> %f", prev, scale)
 
     -- rescale particle
     -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
@@ -272,8 +241,7 @@ function this.OnEnterFrame(self, e)
         local zoom = ic.mouseState.z
         if math.abs(zoom) > zoomThreshold then
             zoom = zoom * 0.001 * config.input.sensitivityZ * (config.input.inversionZ and -1 or 1)
-            self.logger:trace("wheel %f", ic.mouseState.z)
-            self.logger:trace("wheel velocity %f", zoom)
+            self.logger:trace("Wheel: %f, wheel velocity %f", ic.mouseState.z, zoom)
             -- update current zooming
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self.zoomStart = scale
@@ -289,7 +257,6 @@ function this.OnEnterFrame(self, e)
         end
 
         if ic:isMouseButtonDown(0) then
-            self.logger:trace("mouse %f, %f, %f", ic.mouseState.x, ic.mouseState.y, ic.mouseState.z)
             local zAngle = ic.mouseState.x
             local xAngle = ic.mouseState.y
 
@@ -301,7 +268,7 @@ function this.OnEnterFrame(self, e)
             end
             zAngle = zAngle * wc.mouseSensitivityX * config.input.sensitivityX * (config.input.inversionX and -1 or 1)
             xAngle = xAngle * wc.mouseSensitivityY * config.input.sensitivityY * (config.input.inversionY and -1 or 1)
-            self.logger:trace("drag velocity %f, %f", zAngle, xAngle)
+            self.logger:trace("Mouse %f, %f, Angular velocity %f, %f", ic.mouseState.x, ic.mouseState.y, zAngle, xAngle)
 
             self.angularVelocity.z = zAngle
             self.angularVelocity.x = xAngle
@@ -343,16 +310,47 @@ end
 --- @param e activateEventData
 function this.OnActivate(self, e)
     -- block picking up items
-    self.logger:debug("Block activation")
+    self.logger:debug("Block to Activate")
     e.block = true
 end
 
 function this.SwitchAnotherLook(self)
-    self.logger:info("Switch AnotherLook")
+    self.logger:debug("Switch another look")
     if self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
 
         if self.anotherData.type == settings.anotherLookType.BodyParts then
             if not self.another then
+                ---@type {[tes3.activeBodyPart] : string? }
+                local sockets = {
+                    [tes3.activeBodyPart.head]          = "Bip01 Head",
+                    [tes3.activeBodyPart.hair]          = "Head",
+                    [tes3.activeBodyPart.neck]          = "Bip01 Neck",
+                    [tes3.activeBodyPart.chest]         = "Bip01 Spine2",
+                    [tes3.activeBodyPart.groin]         = "Bip01 Spine",
+                    [tes3.activeBodyPart.skirt]         = nil,
+                    [tes3.activeBodyPart.rightHand]     = "Bip01 R Hand",
+                    [tes3.activeBodyPart.leftHand]      = "Bip01 L Hand",
+                    [tes3.activeBodyPart.rightWrist]    = "Right Wrist",
+                    [tes3.activeBodyPart.leftWrist]     = "Left Wrist",
+                    [tes3.activeBodyPart.shield]        = nil,
+                    [tes3.activeBodyPart.rightForearm]  = "Bip01 R Forearm",
+                    [tes3.activeBodyPart.leftForearm]   = "Bip01 L Forearm",
+                    [tes3.activeBodyPart.rightUpperArm] = "Bip01 R UpperArm",
+                    [tes3.activeBodyPart.leftUpperArm]  = "Bip01 L UpperArm",
+                    [tes3.activeBodyPart.rightFoot]     = "Bip01 R Foot",
+                    [tes3.activeBodyPart.leftFoot]      = "Bip01 L Foot",
+                    [tes3.activeBodyPart.rightAnkle]    = "Right Ankle",
+                    [tes3.activeBodyPart.leftAnkle]     = "Left Ankle",
+                    [tes3.activeBodyPart.rightKnee]     = "Bip01 R Calf",
+                    [tes3.activeBodyPart.leftKnee]      = "Bip01 L Calf",
+                    [tes3.activeBodyPart.rightUpperLeg] = "Bip01 R Thigh",
+                    [tes3.activeBodyPart.leftUpperLeg]  = "Bip01 L Thigh",
+                    [tes3.activeBodyPart.rightPauldron] = "Bip01 R Clavicle",
+                    [tes3.activeBodyPart.leftPauldron]  = "Bip01 L Clavicle",
+                    [tes3.activeBodyPart.weapon]        = nil,
+                    [tes3.activeBodyPart.tail]          = "Bip01 Tail",
+                }
+
                 self.another = niNode.new()
                 local data = self.anotherData.data ---@cast data BodyPartsData
 
@@ -364,9 +362,9 @@ function this.SwitchAnotherLook(self)
                      local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
                     if skeletal then
                         self.logger:debug("skeletal")
-                        self.logger:debug(tostring(skeletal.translation))
-                        self.logger:debug(tostring(skeletal.rotation))
-                        self.logger:debug(tostring(skeletal.scale))
+                        self.logger:debug("%s", skeletal.translation)
+                        self.logger:debug("%s", skeletal.rotation)
+                        self.logger:debug("%s", skeletal.scale)
                         -- root = skeletal
                         -- -- reset
                         -- root.translation = tes3vector3.new(0,0,0)
@@ -391,11 +389,11 @@ function this.SwitchAnotherLook(self)
                     if socketName then
                         local socket = root:getObjectByName(socketName) --[[@as niNode?]]
                         if socket and socket.attachChild then
-                            -- self.logger:debug("socket: %s from %d", tostring(s), part.type)
-                            self.logger:debug("transform: %s", tostring(socket.worldTransform.translation) )
-                            self.logger:debug("rotation: %s", tostring(socket.worldTransform.rotation:toEulerXYZ()) )
-                            self.logger:debug("scale: %s", tostring(socket.worldTransform.scale) )
-                            -- self.logger:debug("translation: %s", tostring(s.translation))
+                            -- self.logger:debug("socket: %s from %d", s, part.type)
+                            self.logger:debug("transform: %s", socket.worldTransform.translation)
+                            self.logger:debug("rotation: %s", socket.worldTransform.rotation:toEulerXYZ())
+                            self.logger:debug("scale: %s", socket.worldTransform.scale)
+                            -- self.logger:debug("translation: %s", s.translation)
                             -- local transform = toRelative * s.worldTransform:copy()
                             -- local t = transform * tes3vector3.new(0,0,0)
                             -- model.translation =  t:copy()
@@ -441,9 +439,11 @@ function this.SwitchAnotherLook(self)
             end
 
             if self.anotherLook then
+                self.logger:debug("Body parts")
                 self.pivot:detachChild(self.another)
                 self.pivot:attachChild(self.original)
             else
+                self.logger:debug("Physical Item")
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
             end
@@ -456,15 +456,17 @@ function this.SwitchAnotherLook(self)
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
                 self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
                 if not self.another  then
-                    self.logger:error("failed to load %s", data.path)
+                    self.logger:error("Failed to load %s", data.path)
                     return
                 end
             end
 
             if self.anotherLook then
+                self.logger:debug("Sheathed Weapon")
                 self.pivot:detachChild(self.another)
                 self.pivot:attachChild(self.original)
             else
+                self.logger:debug("Drawn Weapon")
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
             end
@@ -478,10 +480,12 @@ function this.SwitchAnotherLook(self)
             self.pivot:updateEffects()
         end
 
-        if self.anotherData.type == settings.anotherLookType.Book then
+        if self.anotherData.type == settings.anotherLookType.Book and self.anotherData.data.text then
             if self.anotherData.data.type == tes3.bookType.book then
+                self.logger:debug("Show book menu")
                 tes3ui.showBookMenu(self.anotherData.data.text)
             elseif self.anotherData.data.type == tes3.bookType.scroll then
+                self.logger:debug("Show scroll menu")
                 tes3ui.showScrollMenu(self.anotherData.data.text)
             end
         end
@@ -490,7 +494,7 @@ function this.SwitchAnotherLook(self)
 end
 
 function this.ResetPose(self)
-    self.logger:info("Reset Pose")
+    self.logger:debug("Reset pose")
     if self.root then
         self.angularVelocity = tes3vector3.new(0, 0, 0)
         self.zoomStart = 1
@@ -538,7 +542,7 @@ end
 ---@param ratio number
 ---@return number
 function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ratio)
-    local fovX = mgeFov or cameraData.fov
+    local fovX = mgeFov-- or cameraData.fov
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
     local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * ratio
@@ -559,11 +563,11 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ra
     local scale = screenSize / boundsSize
 
     self.logger:debug("MGE near: %f, fov: %f", mge.camera.nearRenderDistance, mgeFov)
-    self.logger:debug("near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
+    self.logger:debug("Camera near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
         cameraData.fov)
-    self.logger:debug("viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
-    self.logger:debug("distant width: %f, height: %f, fovX: %f", width, height, fovX)
-    self.logger:debug("fitting scale: %f", scale)
+    self.logger:debug("Camera viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
+    self.logger:debug("Distant width: %f, height: %f, fovX: %f", width, height, fovX)
+    self.logger:debug("Fitting scale: %f", scale)
     return scale
 end
 
@@ -572,6 +576,7 @@ end
 function this.Activate(self, params)
     local target = params.target
     if not target then
+        self.logger:error("No Object")
         return
     end
     local mesh = target.mesh
@@ -590,8 +595,8 @@ function this.Activate(self, params)
     if config.display.recalculateBounds then
         -- vertex only bounds
         -- more tight bounds, but possible too heavy.
-        self.logger:debug(tostring(bounds.max))
-        self.logger:debug(tostring(bounds.min))
+        self.logger:debug("prev bounds max: %s", bounds.max)
+        self.logger:debug("prev bounds min: %s", bounds.min)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
         foreach(model, function(node)
@@ -620,9 +625,9 @@ function this.Activate(self, params)
     -- centering
     -- FIXME Some creatures appear to be offset off. Should skinning be considered?
     local offset = (bounds.max + bounds.min) * -0.5
-    self.logger:debug(tostring(bounds.max))
-    self.logger:debug(tostring(bounds.min))
-    self.logger:debug(tostring(offset))
+    self.logger:debug("bounds max: %s", bounds.max)
+    self.logger:debug("bounds min: %s", bounds.min)
+    self.logger:debug("bounds offset: %s", offset)
     local root, pivot = SetupNode(distance)
     pivot.translation = offset
     pivot:attachChild(model)
@@ -647,7 +652,7 @@ function this.Activate(self, params)
         -- dominant axis based
         -- TODO more better algorithm
         local size = bounds.max - bounds.min
-        self.logger:debug("bounds size: %f, %f, %f", size.x, size.y, size.z)
+        self.logger:debug("bounds size: %s", size)
         local my = 0
         if size.x < size.y and size.z < size.y then
             my = 1
@@ -666,7 +671,7 @@ function this.Activate(self, params)
             mz = 2
         end
         local imin = my + mz;
-        self.logger:debug("axis %d, %d", imax, imin)
+        self.logger:debug("axis: max %d, min %d", imax, imin)
 
 
         -- it seems that area ratio would be a better result.
@@ -703,7 +708,7 @@ function this.Activate(self, params)
 
     -- zoom limitation
     local extents = (bounds.max - bounds.min) * 0.5 * self.baseScale
-    self.logger:debug(tostring(extents))
+    self.logger:debug("bounds extents %s", extents)
     local halfLength = extents:length()
     -- halfLength = math.max(extents.x, extents.y, extents.z, 0)
     -- Offset because it is clipped before the near clip for some reason.

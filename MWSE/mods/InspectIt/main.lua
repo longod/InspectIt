@@ -62,9 +62,9 @@ local function FindAnotherLook(target)
         -- Book or Scroll
         ---@cast target tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
-        if not target.script then
+        if not target.script and target.text then
             -- exclude in barter? check owner?
-            logger:info("Find book %d: %s", target.type, target.name)
+            logger:info("Find book contents")
             local data = { type = target.type, text = target.text }
             return settings.anotherLookType.Book, data
         end
@@ -125,11 +125,11 @@ end
 ---@return boolean
 local function LeaveInspection(menuExit)
     if context.enable then
+        context.enable = false
         logger:info("Leave Inspection")
         for _, controller in ipairs(controllers) do
             controller:Deactivate({ menuExit = menuExit })
         end
-        context.enable = false
         return true
     end
     return false
@@ -144,12 +144,12 @@ local function EnterInspection()
     end
     if not CanInspection(context.target) then
         logger:info("Unsupported Inspection: %s", context.target.name)
-        tes3.messageBox(settings.i18n("messageBox.unsupport.text"))
+        tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
         context.target = nil
         context.itemData = nil
         return false
     end
-    -- picking a item
+    -- when picking a item
     local cursor = tes3ui.findHelpLayerMenu("CursorIcon")
     if cursor then
         local tile = cursor:getPropertyObject("MenuInventory_Thing", "tes3inventoryTile")
@@ -159,14 +159,22 @@ local function EnterInspection()
             return false
         end
     end
-    logger:info("Enter Inspection: %s", context.target.name)
 
     local another, data = FindAnotherLook(context.target)
     local status, description = pcall(function() return require("InspectIt.mod").FindTooltipsComplete(context.target, context.itemData) end)
     if not status then
         logger:error("Failed to call Tooltips Complete: %s", tostring(description))
         description = nil
+    elseif description then
+        if type(description) == "string" then
+            logger:debug("Find description from Tooltips Complete: %s", description)
+        else
+            logger:warn("Invalid data from Tooltips Complete: %s", tostring(description))
+            description = nil
+        end
     end
+
+    logger:info("Enter Inspection: %s", context.target.name)
 
     ---@type Activate.Params
     local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description }
@@ -227,25 +235,27 @@ local function OnKeyDown(e)
             if not context.target then
                 if tes3.menuMode() then
                     -- get cursor obj
+                    --[[
                     local cameraData = tes3.worldController.worldCamera.cameraData
                     local fovX = mge.camera.fov or cameraData.fov
                     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
                     local tan = math.tan(math.rad(fovX) * 0.5)
                     local cursor = tes3.getCursorPosition():copy()
                     local ndcPos = tes3vector2.new(cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2)
-                    logger:debug("ndcPos: %s", tostring(ndcPos))
+                    --logger:debug("ndcPos: %s", ndcPos)
                     -- TODO we need the inversed projection!
-                    --logger:debug("world dir: %s", tostring(worldDir))
+                    --logger:debug("world dir: %s", worldDir)
                     -- local eyeDir = tes3.getPlayerEyeVector()
                     -- eyeDir:normalize()
-                    -- logger:debug("eye dir: %s", tostring(eyeDir))
-                    -- logger:debug("eye pos: %s", tostring(eyePos))
+                    -- logger:debug("eye dir: %s", eyeDir)
+                    -- logger:debug("eye pos: %s", eyePos)
                     local eyePos = tes3.getPlayerEyePosition()
                     local distance = tes3.getPlayerActivationDistance()
                     -- local hit = tes3.rayTest({ position = eyePos, direction = worldDir, maxDistance = distance })
                     -- if hit and hit.reference then
                     --     tes3.messageBox(hit.reference.object.name)
                     -- end
+                    --]]
                 else
                     if config.inspection.activatable then
                         local ref = tes3.getPlayerTarget()
@@ -301,7 +311,7 @@ end
 local function OnMenuExit(e)
     -- fail-safe
     if context.enable then
-        logger:error("Not terminated")
+        logger:error("Inspection was not terminated")
         LeaveInspection(true)
     end
     context.target = nil
@@ -332,10 +342,13 @@ local function OnInitialized()
     end)
 
     require("InspectIt.mod").RegisterRightClickMenuExit()
-
 end
 
-event.register(tes3.event.initialized, OnInitialized)
+if mge.enabled() then
+    event.register(tes3.event.initialized, OnInitialized)
+else
+    logger:error("This mod requires MGE XE to be enabled.")
+end
 
 require("InspectIt.mcm")
 
