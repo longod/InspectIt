@@ -18,11 +18,11 @@ This mod allow you to inspect a variety of objects.
     - `Enable shaders` in MGE XE must be enabled to use focuse effect. However, there is no need to set up anything in `Shader setup`.
 
 ## Mod Compatibility
-- [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458)
+- [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458) by Merlord
   - Right-click to exit the inspection.
-- [Tooltips Complete](https://www.nexusmods.com/morrowind/mods/46842)
+- [Tooltips Complete](https://www.nexusmods.com/morrowind/mods/46842) by Anumaril21
   - If those are descriptions by that mod, it can be displayed during the inspection.
-- [Weapon Sheathing](https://www.nexusmods.com/morrowind/mods/46069)
+- [Weapon Sheathing](https://www.nexusmods.com/morrowind/mods/46069) by TES3 Community
   - If those are sheathed weapons by that mod, you can switch the display to it.
 
 ## Known Issues and Future Work

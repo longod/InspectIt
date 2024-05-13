@@ -45,7 +45,7 @@ return {
     ["mcm.display.recalculateBounds.label"] = "Recalculate Bounding Box",
     ["mcm.display.recalculateBounds.description"] = "The object to be inspected may fit more efficiently on the screen. But it requires heavy load when starting the inspection.",
     ["mcm.display.tooltipsComplete.label"] = "Tooltips Complete",
-    ["mcm.display.tooltipsComplete.description"] = "Display a description by Tooltips Complete mod during inspection. That config is also applied.",
+    ["mcm.display.tooltipsComplete.description"] = "If Tooltips Complete is installed, its description is displayed during the inspection. That mod's config also be applied.",
     ["mcm.development.category.label"] = "Development",
     ["mcm.development.category.description"] = "Features for development.",
     ["mcm.development.logLevel.label"] = "Logging Level",
