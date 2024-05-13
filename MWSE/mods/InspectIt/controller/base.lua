@@ -25,6 +25,7 @@ local this = {}
 ---@field offset number
 ---@field another AnotherLookData
 ---@field description string?
+---@field name string?
 
 ---@class Deactivate.Params
 ---@field menuExit boolean

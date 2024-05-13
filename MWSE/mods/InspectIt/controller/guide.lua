@@ -85,6 +85,8 @@ end
 function this.Activate(self, params)
     Destroy()
 
+    local name = params.name or params.target.name
+
     local width, height = tes3ui.getViewportSize()
     local aspectRatio = width/height
     local offset = 0.02
@@ -107,7 +109,7 @@ function this.Activate(self, params)
     border.autoHeight = true
     border.paddingAllSides = 8
     border.childAlignX = 0.5
-    local nameLabel = border:createLabel({ text = params.target.name })
+    local nameLabel = border:createLabel({ text = name })
     nameLabel.borderAllSides = 4
     nameLabel.color = tes3ui.getPalette(tes3.palette.headerColor)
 
@@ -177,7 +179,7 @@ function this.Activate(self, params)
 
     -- on mouse fade? help layer does not trigger over, leave event
     if config.display.tooltipsComplete and params.description then
-        self.logger:debug("create description")
+        self.logger:debug("Create description")
         local help = tes3ui.createHelpLayerMenu({ id = helpLayerMenu })
         help:destroyChildren()
         help.flowDirection = tes3.flowDirection.topToBottom
@@ -187,17 +189,17 @@ function this.Activate(self, params)
         help.autoHeight = true
         help.minWidth = 0
         help.minHeight = 0
-        help.alpha = 0.2
+        help.alpha = 0.4
         local block = help:createBlock()
         block.flowDirection = tes3.flowDirection.topToBottom
         block.widthProportional = 1.0
         block.minWidth = 0
-        block.maxWidth = 300
+        block.maxWidth = 320
         block.autoWidth = true
         block.autoHeight = true
         block.paddingAllSides = 8
         --block.childAlignX = 0.5
-        block:createLabel({ text = params.description }).alpha = 0.9 -- .borderAllSides = 2
+        block:createLabel({ text = params.description }).alpha = 0.95 -- .borderAllSides = 2
         help:updateLayout()
 
         event.register(tes3.event.enterFrame, OnEnterFrame)

@@ -30,5 +30,6 @@ This mod allow you to inspect a variety of objects.
 - Trailer-type particles are not displayed.
 - If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
 - For some objects, the initial orientation or position is not appropriate.
+- It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
 - Another look at armor and clothing with body parts is under research. This also applies to NPCs.
 - Inspection of mouseovered object in the world during the menu is not yet supported.

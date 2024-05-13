@@ -20,6 +20,20 @@ local context = {
     itemData = nil, ---@type tes3itemData?
 }
 
+ ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
+ ---@param itemData tes3itemData?
+ ---@return string?
+ local function FindSoulName(object, itemData)
+    if object.objectType == tes3.objectType.miscItem then
+        ---@cast object tes3misc
+        if object.isSoulGem and itemData and itemData.soul and itemData.soul.id then
+            logger:debug("Find soul in item: %s", itemData.soul.name)
+            return itemData.soul.name
+        end
+    end
+    return nil
+end
+
  ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
  ---@return BodyPartsData|WeaponSheathingData? data
@@ -62,11 +76,15 @@ local function FindAnotherLook(target)
         -- Book or Scroll
         ---@cast target tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
-        if not target.script and target.text then
-            -- exclude in barter? check owner?
-            logger:info("Find book contents")
-            local data = { type = target.type, text = target.text }
-            return settings.anotherLookType.Book, data
+        if not target.script then
+            if target.text then
+                -- exclude in barter? check owner?
+                logger:info("Find book or scroll contents")
+                local data = { type = target.type, text = target.text }
+                return settings.anotherLookType.Book, data
+            end
+        else
+            logger:debug("%s, book or scroll has a sciprt: %s", target.name, tostring(target.script.id))
         end
     end
     return nil, nil
@@ -160,6 +178,12 @@ local function EnterInspection()
         end
     end
 
+    local name = context.target.name
+    local soul = FindSoulName(context.target, context.itemData)
+    if soul then
+        name = string.format("%s (%s)", name, soul)
+    end
+
     local another, data = FindAnotherLook(context.target)
     local status, description = pcall(function() return require("InspectIt.mod").FindTooltipsComplete(context.target, context.itemData) end)
     if not status then
@@ -167,9 +191,9 @@ local function EnterInspection()
         description = nil
     elseif description then
         if type(description) == "string" then
-            logger:debug("Find description from Tooltips Complete: %s", description)
+            logger:debug("Find description from Tooltips Complete")
         else
-            logger:warn("Invalid data from Tooltips Complete: %s", tostring(description))
+            logger:warn("Invalid data from Tooltips Complete")
             description = nil
         end
     end
@@ -177,7 +201,7 @@ local function EnterInspection()
     logger:info("Enter Inspection: %s", context.target.name)
 
     ---@type Activate.Params
-    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description }
+    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description, name = name }
     for _, controller in ipairs(controllers) do
         controller:Activate(params)
     end
