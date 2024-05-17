@@ -121,6 +121,8 @@ end
 ---@field another niNode?
 ---@field anotherData? AnotherLookData
 ---@field anotherLook boolean
+---@field objectId string? object id
+---@field objectType tes3.objectType?
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -140,6 +142,8 @@ local defaults = {
     another = nil,
     anotherData = nil,
     anotherLook = false,
+    objectId = nil,
+    objectType = nil,
 }
 
 ---@return Inspector
@@ -222,6 +226,17 @@ function this.SetScale(self, scale)
             node.data:updateModelBound() -- need?
         end
     end)
+end
+
+
+---@param self Inspector
+---@param pickup boolean
+function this.PlaySound(self, pickup)
+    if config.inspection.playSound then
+        -- TODO creature -> sound gen
+        -- door, others
+        tes3.playItemPickupSound({ item = self.objectId, pickup = pickup })
+    end
 end
 
 ---@param self Inspector
@@ -470,7 +485,10 @@ function this.SwitchAnotherLook(self)
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
             end
+
+
             self.anotherLook = not self.anotherLook
+            self:PlaySound(self.anotherLook)
 
             -- apply same scale for particle
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
@@ -521,9 +539,13 @@ local function SetupNode(offset)
     pivot:attachProperty(zBufferProperty)
     -- No culling on the back face because the geometry of the part to be placed on the ground does not exist.
     local stencilProperty = niStencilProperty.new()
-    zBufferProperty.name = "InspectIt:NoCull"
+    stencilProperty.name = "InspectIt:NoCull"
     stencilProperty.drawMode = 3 -- DRAW_BOTH
     pivot:attachProperty(stencilProperty)
+    -- local vertexColorProperty = niVertexColorProperty.new()
+    -- vertexColorProperty.name = "InspectIt:emiAmbDif"
+    -- vertexColorProperty.source = 2
+    -- pivot:attachProperty(vertexColorProperty)
     pivot.appCulled = false
 
     local root = niNode.new()
@@ -740,6 +762,12 @@ function this.Activate(self, params)
     event.register(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
     event.register(settings.resetPoseEventName, self.resetPosecCallback)
 
+    -- It is better to play the sound in another controller, but it is easy to depend on the inspector's state, so run it in that.
+    -- it seems it doesn't matter if the ID is not from tes3item.
+    self.objectId = target.id
+    self.objectType = target.objectType
+    self:PlaySound(true)
+
 end
 
 ---@param self Inspector
@@ -761,12 +789,17 @@ function this.Deactivate(self, params)
         self.switchAnotherLookCallback = nil
         self.resetPosecCallback = nil
 
-        self.pivot = nil
-        self.root = nil
-        self.original = nil
-        self.another = nil
-        self.anotherData = nil
+        if not params.menuExit then
+            self:PlaySound(false)
+        end
     end
+    self.pivot = nil
+    self.root = nil
+    self.original = nil
+    self.another = nil
+    self.anotherData = nil
+    self.objectId = nil
+    self.objectType = nil
 end
 
 ---@param self Inspector
@@ -776,6 +809,8 @@ function this.Reset(self)
     self.original = nil
     self.another = nil
     self.anotherData = nil
+    self.objectId = nil
+    self.objectType = nil
 end
 
 return this

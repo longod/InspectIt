@@ -150,6 +150,14 @@ local function OnModConfigReady(e)
                 table = config.inspection,
             }),
         })
+        inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.playSound.label"),
+            description = settings.i18n("mcm.inspection.playSound.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "playSound",
+                table = config.inspection,
+            }),
+        })
     end
     do
         local display = page:createCategory({

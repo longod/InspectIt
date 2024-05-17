@@ -4,7 +4,7 @@ This mod allow you to inspect a variety of objects.
 ![Inspect It!](InspectIt.gif)
 
 ## How to use
-### Begin the Inspection
+### Begin Inspection
 - You can inspect an object by pressing the assigned key binding (default: `F2`) when you mouseover an item in the inventory or you look at an activatable object with the crosshair.
 
 ### During Inspection
@@ -17,7 +17,7 @@ This mod allow you to inspect a variety of objects.
 - [Morrowind Graphics Extender XE](https://www.nexusmods.com/morrowind/mods/41102)
     - `Enable shaders` in MGE XE must be enabled to use focuse effect. However, there is no need to set up anything in `Shader setup`.
 
-## Mod Compatibility
+## Compatibility
 - [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458) by Merlord
   - Right-click to exit the inspection.
 - [Tooltips Complete](https://www.nexusmods.com/morrowind/mods/46842) by Anumaril21

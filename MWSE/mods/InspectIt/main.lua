@@ -79,7 +79,7 @@ local function FindAnotherLook(target)
         if not target.script then
             if target.text then
                 -- exclude in barter? check owner?
-                logger:info("Find book or scroll contents")
+                logger:debug("Find book or scroll contents")
                 local data = { type = target.type, text = target.text }
                 return settings.anotherLookType.Book, data
             end
@@ -246,7 +246,10 @@ local function OnKeyDown(e)
                 end
             end
             if TestInput(e, config.input.another) then
-                tes3.worldController.menuClickSound:play()
+                -- Sound is played even when another does not exist.
+                -- if not config.inspection.playItemSound then
+                --     tes3.worldController.menuClickSound:play()
+                -- end
                 event.trigger(settings.switchAnotherLookEventName)
             end
             if TestInput(e, config.input.reset) then

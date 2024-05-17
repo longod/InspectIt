@@ -64,6 +64,7 @@ this.defaultConfig = {
         contents = true,
         activatable = true,
         -- cursorover = true,
+        playSound = true,
     },
     display = {
         instruction = true,

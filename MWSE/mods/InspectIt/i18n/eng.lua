@@ -36,6 +36,8 @@ return {
     ["mcm.inspection.contents.description"] = "When you mouseover an item in a container or pickpocketing, you can inspect it.",
     ["mcm.inspection.activatable.label"] = "Look at an Activatable Object",
     ["mcm.inspection.activatable.description"] = "When you are looking at an activatable object with the crosshair, you can inspect it.",
+    ["mcm.inspection.playSound.label"] = "Play Sound",
+    ["mcm.inspection.playSound.description"] = "Play the sound effect set for the object.",
     ["mcm.display.category.label"] = "Display",
     ["mcm.display.category.description"] = "Configure elements to be displayed on the screen.",
     ["mcm.display.instruction.label"] = "Instruction",
