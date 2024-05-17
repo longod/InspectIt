@@ -45,17 +45,26 @@ local function FindAnotherLook(target)
         if tes3.player and tes3.player.object and target.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = target.parts
-            local bodyParts = {} ---@type BodyPartsData[]
+            local bodyParts = {} ---@type BodyParts[]
             for _, ware in ipairs(parts) do
                 local part = ware.male
                 if female and ware.female then
                     part = ware.female
                 end
                 if part then
-                    table.insert(bodyParts, { type = ware.type, part = part })
+                    local data = { type = ware.type, part = part }
+                    table.insert(bodyParts, data)
                 end
             end
-            if table.size(bodyParts) ~= 0 then
+            local count = table.size(bodyParts)
+            if count > 0 then
+                -- same mesh (shield)
+                -- or just shield, helms
+                if count == 1 and bodyParts[1].part.mesh == target.mesh then
+                    logger:debug("A bodypart is same mesh as object: %s", target.mesh)
+                    return nil, nil
+                end
+                logger:debug("Find bodyparts %d", count)
                 local data = { parts = bodyParts } ---@type BodyPartsData
                 return settings.anotherLookType.BodyParts, data
             end
@@ -84,6 +93,7 @@ local function FindAnotherLook(target)
                 return settings.anotherLookType.Book, data
             end
         else
+            -- TODO message box if need
             logger:debug("%s, book or scroll has a sciprt: %s", target.name, tostring(target.script.id))
         end
     end
@@ -244,17 +254,15 @@ local function OnKeyDown(e)
                 if LeaveInspection(false) then
                     tes3.worldController.menuClickSound:play()
                 end
-            end
-            if TestInput(e, config.input.another) then
+            elseif TestInput(e, config.input.another) then
                 -- Sound is played even when another does not exist.
-                -- if not config.inspection.playItemSound then
-                --     tes3.worldController.menuClickSound:play()
-                -- end
                 event.trigger(settings.switchAnotherLookEventName)
-            end
-            if TestInput(e, config.input.reset) then
+            elseif TestInput(e, config.input.lighting) then
+                event.trigger(settings.switchLightingEventName)
                 tes3.worldController.menuClickSound:play()
+            elseif TestInput(e, config.input.reset) then
                 event.trigger(settings.resetPoseEventName)
+                tes3.worldController.menuClickSound:play()
             end
         end
     else
@@ -263,25 +271,105 @@ local function OnKeyDown(e)
                 if tes3.menuMode() then
                     -- get cursor obj
                     --[[
+                    -- TODO we need the inversed projection!
+                    ---@param v number[]
+                    ---@param m number[][]
+                    ---@return number[]
+                    local TransformRowVector = function(v, m)
+                        local ret = { 0, 0, 0, 0 }
+                        for c = 1, 4, 1 do
+                            for r = 1, 4, 1 do
+                                ret[c] = ret[c] + v[r] * m[r][c] -- v * m
+                            end
+                        end
+                        return ret
+                    end
+
+                    ---@param m number[][]
+                    ---@param v number[]
+                    ---@return number[]
+                    local TransformColumnVector = function(m, v)
+                        local ret = { 0, 0, 0, 0 }
+                        for c = 1, 4, 1 do
+                            for r = 1, 4, 1 do
+                                ret[c] = ret[c] + m[c][r] * v[r] -- m * v
+                            end
+                        end
+                        return ret
+                    end
+
+                    -- inversed projection matrix
                     local cameraData = tes3.worldController.worldCamera.cameraData
                     local fovX = mge.camera.fov or cameraData.fov
-                    local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
-                    local tan = math.tan(math.rad(fovX) * 0.5)
-                    local cursor = tes3.getCursorPosition():copy()
-                    local ndcPos = tes3vector2.new(cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2)
-                    --logger:debug("ndcPos: %s", ndcPos)
-                    -- TODO we need the inversed projection!
-                    --logger:debug("world dir: %s", worldDir)
-                    -- local eyeDir = tes3.getPlayerEyeVector()
-                    -- eyeDir:normalize()
-                    -- logger:debug("eye dir: %s", eyeDir)
-                    -- logger:debug("eye pos: %s", eyePos)
+                    local cot = 1.0 / math.tan(math.rad(fovX) * 0.5)
+                    local aspectRatio =  cameraData.viewportWidth / cameraData.viewportHeight -- 1/aspectRatio
+                    local near = cameraData.nearPlaneDistance
+                    local far = cameraData.farPlaneDistance
+                    local w = cot
+                    local h = cot * aspectRatio
+                    local a = far / (far - near)
+                    local b = -a * near
+                    -- row? column?
+
                     local eyePos = tes3.getPlayerEyePosition()
+                    local eyeDir = tes3.getPlayerEyeVector()
                     local distance = tes3.getPlayerActivationDistance()
-                    -- local hit = tes3.rayTest({ position = eyePos, direction = worldDir, maxDistance = distance })
-                    -- if hit and hit.reference then
-                    --     tes3.messageBox(hit.reference.object.name)
-                    -- end
+                    local cursor = tes3.getCursorPosition():copy()
+                    --local ndcPos = tes3vector4.new(cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2, 0, 1)
+                    --logger:debug("ndcPos: %s", ndcPos)
+                    local ndc = { cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2, 0, 1}
+                    ndc[0] = 0
+                    ndc[1] = 0
+                    -- 44 has no mul operator... so i calculate on my own
+                    -- inv proj LH
+                    local m = {
+                        { 1 / w, 0, 0, 0 },
+                        { 0,   1 / h, 0, 0 },
+                        { 0,   0,   0, 1 / b },
+                        { 0,   0,   1, -a / b },
+                    }
+
+                    local vr = { 0, 0, 0, 0 }
+                    local vc = { 0, 0, 0, 0 }
+
+                    local proj = {
+                        { w, 0, 0, 0 },
+                        { 0,   h, 0, 0 },
+                        { 0,   0,   a, 1 },
+                        { 0,   0,   b, 0 },
+                    }
+
+                    local p = TransformColumnVector(proj, {0,0,1,1})
+                    logger:debug("p1 : %s", table.concat(p, ", "))
+                    p = TransformRowVector({0,0,100,1}, proj) -- maybe this
+                    logger:debug("p2 : %s", table.concat(p, ", "))
+
+
+                    vr = TransformRowVector(ndc, m)
+
+                    -- affine
+                    local view = tes3vector3.new(vr[1] / vr[4], vr[2] / vr[4], vr[3] / vr[4])
+                    view = tes3vector3.new(vr[1] / vr[4], vr[3] / vr[4], vr[2] / vr[4]) -- to z-up
+                    --view = tes3vector3.new(vc[1] / vc[4], vc[2] / vc[4], vc[3] / vc[4])
+                    view:normalize()
+                    -- logger:debug("%s\n\t%s\n\t%s\n\t%s", table.concat(m[1], ", "), table.concat(m[2], ", "), table.concat(m[3], ", "), table.concat(m[4], ", "))
+
+                    logger:debug("vr : %s", table.concat(vr, ", "))
+                    logger:debug("vc : %s", table.concat(vc, ", "))
+                    logger:debug("viewDir: %s", view)
+                    -- witch the camera view matrix?
+                    local rotate = tes3.worldController.worldCamera.cameraData.camera.worldTransform.rotation:copy()
+                    rotate:lookAt(eyeDir, tes3vector3.new(0, 0, 1)) -- or quaternion without twist
+                    logger:debug("%s\n\t%s\n\t%s", rotate.x, rotate.y, rotate.z)
+                    rotate = rotate:transpose():copy()
+                    eyeDir = rotate:copy() * eyeDir:copy()
+                    eyeDir:normalize()
+                    logger:debug("eye dir: %s", eyeDir) -- ok transposed
+
+                    rotate:invert()
+                    local worldDir = rotate:copy() * view:copy()
+                    worldDir:normalize()
+                    logger:debug("worldDir: %s", worldDir)
                     --]]
                 else
                     if config.inspection.activatable then

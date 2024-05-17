@@ -26,10 +26,13 @@ This mod allow you to inspect a variety of objects.
   - If those are sheathed weapons by that mod, you can switch the display to it.
 
 ## Known Issues and Future Work
-- Animations are not played. Especially particles.
-- Trailer-type particles are not displayed.
-- If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
+- It is not affected by point lights or spot lights. Try to switch lighting.
+- When it is not lit, it is rendered in front of the UI.
 - For some objects, the initial orientation or position is not appropriate.
+- It does not work correctly while rotating the camera while holding down the tab key during TPV.
 - It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
 - Another look at armor and clothing with body parts is under research. This also applies to NPCs.
 - Inspection of mouseovered object in the world during the menu is not yet supported.
+- If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
+- Animations are not played. Especially particles.
+- Trailer-type particles are not displayed.

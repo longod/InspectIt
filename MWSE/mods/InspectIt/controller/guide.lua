@@ -80,6 +80,25 @@ local function Destroy()
     end
 end
 
+---comments
+---@param parent tes3uiElement
+---@param text string button text
+---@param label string label text
+---@param buttonId string|number|nil label text
+---@returns tes3uiElement button
+---@returns tes3uiElement block
+local function CreateButton(parent, text, label, buttonId)
+    local row = parent:createBlock()
+    row.flowDirection = tes3.flowDirection.leftToRight
+    row.autoWidth = true
+    row.autoHeight = true
+    row.childAlignY = 0.5
+    row.paddingAllSides = 2
+    local button = row:createButton({ id = buttonId, text = text })
+    row:createLabel({ text = label })
+    return button, row
+end
+
 ---@param self Guide
 ---@param params Activate.Params
 function this.Activate(self, params)
@@ -130,48 +149,31 @@ function this.Activate(self, params)
 
         -- another/activate
         if params.another.type ~= nil then
-            local row = block:createBlock()
-            row.flowDirection = tes3.flowDirection.leftToRight
-            row.autoWidth = true
-            row.autoHeight = true
-            row.childAlignY = 0.5
-            row.paddingAllSides = 2
-            local button = row:createButton({ text = settings.i18n("guide.another.text") })
+            local button = CreateButton(block, settings.i18n("guide.another.text"), ": " .. GetComboString(config.input.another))
             button:register(tes3.uiEvent.mouseClick, function(e)
                 event.trigger(settings.switchAnotherLookEventName)
             end)
-            row:createLabel({ text = ": " .. GetComboString(config.input.another) })
-            row.visible = params.another.type ~= nil
         end
-
+        -- lighting
+        do
+            local button = CreateButton(block, settings.i18n("guide.lighting.text"), ": " .. GetComboString(config.input.lighting))
+            button:register(tes3.uiEvent.mouseClick, function(e)
+                event.trigger(settings.switchLightingEventName)
+            end)
+        end
         -- reset
         do
-            local row = block:createBlock()
-            row.flowDirection = tes3.flowDirection.leftToRight
-            row.autoWidth = true
-            row.autoHeight = true
-            row.childAlignY = 0.5
-            row.paddingAllSides = 2
-            local button = row:createButton({ text = settings.i18n("guide.reset.text") })
+            local button = CreateButton(block, settings.i18n("guide.reset.text"), ": " .. GetComboString(config.input.reset))
             button:register(tes3.uiEvent.mouseClick, function(e)
                 event.trigger(settings.resetPoseEventName)
             end)
-            row:createLabel({ text = ": " .. GetComboString(config.input.reset) })
         end
-
         -- return
         do
-            local row = block:createBlock()
-            row.flowDirection = tes3.flowDirection.leftToRight
-            row.autoWidth = true
-            row.autoHeight = true
-            row.childAlignY = 0.5
-            row.paddingAllSides = 2
-            local button = row:createButton({ id = settings.returnButtonName, text = settings.i18n("guide.return.text") })
+            local button = CreateButton(block, settings.i18n("guide.return.text"), ": " .. GetComboString(config.input.inspect), settings.returnButtonName)
             button:register(tes3.uiEvent.mouseClick, function(e)
                 event.trigger(settings.returnEventName)
             end)
-            row:createLabel({ text = ": " .. GetComboString(config.input.inspect) })
         end
     end
 

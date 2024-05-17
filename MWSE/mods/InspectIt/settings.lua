@@ -8,6 +8,7 @@ this.guideMenuID = tes3ui.registerID(this.guideMenu)
 this.returnButtonName = "InspectIt:ReturnButton"
 this.returnEventName = "InspectIt:ReturnEvent"
 this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
+this.switchLightingEventName = "InspectIt:SwitchLightingEvent"
 this.resetPoseEventName = "InspectIt:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectIt")
 
@@ -27,6 +28,12 @@ this.anotherLookType = {
     Book = 3,
 }
 
+---@enum LightingType
+this.lightingType = {
+    Default = 1,
+    Constant = 2,
+}
+
 ---@class Config
 this.defaultConfig = {
     input = {
@@ -40,6 +47,13 @@ this.defaultConfig = {
         ---@type mwseKeyCombo
         another = {
             keyCode = tes3.scanCode.s --[[@as tes3.scanCode]],
+            isShiftDown = false,
+            isAltDown = false,
+            isControlDown = false,
+        },
+        ---@type mwseKeyCombo
+        lighting = {
+            keyCode = tes3.scanCode.f --[[@as tes3.scanCode]],
             isShiftDown = false,
             isAltDown = false,
             isControlDown = false,

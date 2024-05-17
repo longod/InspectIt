@@ -100,6 +100,8 @@ local function GetOrientation(object)
             return o
         end
     end
+    -- TODO door
+
     return orientations[object.objectType]
 end
 
@@ -109,6 +111,7 @@ end
 ---@field enterFrameCallback fun(e : enterFrameEventData)?
 ---@field activateCallback fun(e : activateEventData)?
 ---@field switchAnotherLookCallback fun()?
+---@field switchLightingCallback fun()?
 ---@field resetPosecCallback fun()?
 ---@field angularVelocity tes3vector3 -- vec2 doesnt have dot
 ---@field baseRotation tes3matrix33
@@ -118,9 +121,13 @@ end
 ---@field zoomTime number
 ---@field zoomMax number
 ---@field original niNode?
+---@field originalBounds tes3boundingBox?
 ---@field another niNode?
+---@field anotherBounds tes3boundingBox?
 ---@field anotherData? AnotherLookData
 ---@field anotherLook boolean
+---@field lighting LightingType
+---@field distance number
 ---@field objectId string? object id
 ---@field objectType tes3.objectType?
 local this = {}
@@ -139,9 +146,13 @@ local defaults = {
     zoomTime = 0,
     zoomMax = 2,
     original = nil,
+    originalBounds = nil,
     another = nil,
+    anotherBounds = nil,
     anotherData = nil,
     anotherLook = false,
+    lighting = settings.lightingType.Default,
+    distance = 20,
     objectId = nil,
     objectType = nil,
 }
@@ -166,6 +177,53 @@ local function foreach(node, func)
             end
         end
     end
+end
+
+---@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
+---@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, parent : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, depth : number)
+---@param parent niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?
+---@param depth number?
+local function traverse(node, func, parent, depth)
+    depth = depth or 0
+    func(node, parent, depth)
+    if node.children then
+        for _, child in ipairs(node.children) do
+            if child then
+                traverse(child, func, node, depth + 1)
+            end
+        end
+    end
+end
+
+---@param root niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
+local function DumpSceneGraph(root)
+    -- TODO json format
+    local str = {}
+    traverse(root,
+        function(node, parent, depth)
+            local indent = string.rep("    ", depth) .. "- "
+            local out = string.format("%s:%s", node.RTTI.name, tostring(node.name))
+            table.insert(str, indent .. out)
+        end)
+    require("InspectIt.logger"):debug("\n" .. table.concat(str, "\n"))
+end
+
+---@param lighting LightingType
+---@return tes3worldControllerRenderCamera|tes3worldControllerRenderTarget? camera
+---@return number fovX
+local function GetCamera(lighting)
+    local fovX = mge.camera.fov
+    if tes3.worldController then
+        if lighting == settings.lightingType.Constant then
+            local camera = tes3.worldController.menuCamera
+            if camera and camera.cameraData then
+                fovX = camera.cameraData.fov
+            end
+            return tes3.worldController.menuCamera, fovX
+        end
+        return tes3.worldController.armCamera, fovX -- default
+    end
+    return nil, fovX
 end
 
 ---@param t number [0,1]
@@ -260,7 +318,8 @@ function this.OnEnterFrame(self, e)
             -- update current zooming
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self.zoomStart = scale
-            self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, self.zoomMax)
+            local limit = math.max(self.zoomMax / self.baseScale, 1)
+            self.zoomEnd = math.clamp(self.zoomEnd + zoom, 0.5, limit)
             self.zoomTime = 0
         end
 
@@ -329,41 +388,46 @@ function this.OnActivate(self, e)
     e.block = true
 end
 
+---@param self Inspector
 function this.SwitchAnotherLook(self)
     self.logger:debug("Switch another look")
     if self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
 
         if self.anotherData.type == settings.anotherLookType.BodyParts then
             if not self.another then
-                ---@type {[tes3.activeBodyPart] : string? }
+                ---@class Socket
+                ---@field name string?
+                ---@field isLeft boolean?
+
+                ---@type {[tes3.activeBodyPart] : Socket }
                 local sockets = {
-                    [tes3.activeBodyPart.head]          = "Bip01 Head",
-                    [tes3.activeBodyPart.hair]          = "Head",
-                    [tes3.activeBodyPart.neck]          = "Bip01 Neck",
-                    [tes3.activeBodyPart.chest]         = "Bip01 Spine2",
-                    [tes3.activeBodyPart.groin]         = "Bip01 Spine",
-                    [tes3.activeBodyPart.skirt]         = nil,
-                    [tes3.activeBodyPart.rightHand]     = "Bip01 R Hand",
-                    [tes3.activeBodyPart.leftHand]      = "Bip01 L Hand",
-                    [tes3.activeBodyPart.rightWrist]    = "Right Wrist",
-                    [tes3.activeBodyPart.leftWrist]     = "Left Wrist",
-                    [tes3.activeBodyPart.shield]        = nil,
-                    [tes3.activeBodyPart.rightForearm]  = "Bip01 R Forearm",
-                    [tes3.activeBodyPart.leftForearm]   = "Bip01 L Forearm",
-                    [tes3.activeBodyPart.rightUpperArm] = "Bip01 R UpperArm",
-                    [tes3.activeBodyPart.leftUpperArm]  = "Bip01 L UpperArm",
-                    [tes3.activeBodyPart.rightFoot]     = "Bip01 R Foot",
-                    [tes3.activeBodyPart.leftFoot]      = "Bip01 L Foot",
-                    [tes3.activeBodyPart.rightAnkle]    = "Right Ankle",
-                    [tes3.activeBodyPart.leftAnkle]     = "Left Ankle",
-                    [tes3.activeBodyPart.rightKnee]     = "Bip01 R Calf",
-                    [tes3.activeBodyPart.leftKnee]      = "Bip01 L Calf",
-                    [tes3.activeBodyPart.rightUpperLeg] = "Bip01 R Thigh",
-                    [tes3.activeBodyPart.leftUpperLeg]  = "Bip01 L Thigh",
-                    [tes3.activeBodyPart.rightPauldron] = "Bip01 R Clavicle",
-                    [tes3.activeBodyPart.leftPauldron]  = "Bip01 L Clavicle",
-                    [tes3.activeBodyPart.weapon]        = nil,
-                    [tes3.activeBodyPart.tail]          = "Bip01 Tail",
+                    [tes3.activeBodyPart.head]          = { name = "Head", },
+                    [tes3.activeBodyPart.hair]          = { name = "Head", },
+                    [tes3.activeBodyPart.neck]          = { name = "Neck", },
+                    [tes3.activeBodyPart.chest]         = { name = "Chest", },
+                    [tes3.activeBodyPart.groin]         = { name = "Groin", },
+                    [tes3.activeBodyPart.skirt]         = { name = "Groin", },
+                    [tes3.activeBodyPart.rightHand]     = { name = "Right Hand", },
+                    [tes3.activeBodyPart.leftHand]      = { name = "Left Hand", isLeft = true },
+                    [tes3.activeBodyPart.rightWrist]    = { name = "Right Wrist", },
+                    [tes3.activeBodyPart.leftWrist]     = { name = "Left Wrist", isLeft = true },
+                    [tes3.activeBodyPart.shield]        = { name = "Shield Bone", },
+                    [tes3.activeBodyPart.rightForearm]  = { name = "Right Forearm", },
+                    [tes3.activeBodyPart.leftForearm]   = { name = "Left Forearm", isLeft = true },
+                    [tes3.activeBodyPart.rightUpperArm] = { name = "Right Upper Arm", },
+                    [tes3.activeBodyPart.leftUpperArm]  = { name = "Left Upper Arm", isLeft = true },
+                    [tes3.activeBodyPart.rightFoot]     = { name = "Right Foot", },
+                    [tes3.activeBodyPart.leftFoot]      = { name = "Left Foot", isLeft = true },
+                    [tes3.activeBodyPart.rightAnkle]    = { name = "Right Ankle", },
+                    [tes3.activeBodyPart.leftAnkle]     = { name = "Left Ankle", isLeft = true },
+                    [tes3.activeBodyPart.rightKnee]     = { name = "Right Knee", },
+                    [tes3.activeBodyPart.leftKnee]      = { name = "Left Knee", isLeft = true },
+                    [tes3.activeBodyPart.rightUpperLeg] = { name = "Right Upper Leg", },
+                    [tes3.activeBodyPart.leftUpperLeg]  = { name = "Left Upper Leg", isLeft = true },
+                    [tes3.activeBodyPart.rightPauldron] = { name = "Right Clavicle" },
+                    [tes3.activeBodyPart.leftPauldron]  = { name = "Left Clavicle", isLeft = true },
+                    [tes3.activeBodyPart.weapon]        = { name = "Weapon Bone", }, -- the real node name depends on the current weapon type.
+                    [tes3.activeBodyPart.tail]          = { name = "Tail" },
                 }
 
                 self.another = niNode.new()
@@ -371,24 +435,37 @@ function this.SwitchAnotherLook(self)
 
                 -- ground
                 local root = tes3.player.object.sceneNode:clone() --[[@as niNode]]
+                DumpSceneGraph(root)
                 root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
-                if root then
-                     -- skeletal root
-                     local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
-                    if skeletal then
-                        self.logger:debug("skeletal")
-                        self.logger:debug("%s", skeletal.translation)
-                        self.logger:debug("%s", skeletal.rotation)
-                        self.logger:debug("%s", skeletal.scale)
-                        -- root = skeletal
-                        -- -- reset
-                        -- root.translation = tes3vector3.new(0,0,0)
-                        -- local r = tes3matrix33.new()
-                        -- r:toIdentity()
-                        -- root.rotation = r
-                        -- root.scale = 1
-                    end
+                if not root then
+                    self.logger:error("Failed to load: %s", tes3.player.object.mesh)
+                    return
                 end
+                -- remove unnecessary nodes
+                foreach(root, function (node)
+                    if node:isInstanceOfType(ni.type.NiTriShape) then
+                        -- reconnect child?
+                        if node.parent then
+                            node.parent:detachChild(node)
+                        end
+                    end
+                end)
+                DumpSceneGraph(root)
+                -- skeletal root
+                local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
+                if skeletal then
+                    self.logger:trace("skeletal")
+                    self.logger:trace("%s", skeletal.translation)
+                    self.logger:trace("%s", skeletal.rotation)
+                    self.logger:trace("%s", skeletal.scale)
+                    root = skeletal
+                    -- local r = tes3matrix33.new()
+                    -- r:toIdentity()
+                    -- root.rotation = r
+                end
+                -- -- reset
+                root.translation = tes3vector3.new(0,0,0)
+                root.scale = 1
                 root:update() -- transform
                 self.another = root
                 local toRelative = root.worldTransform:copy():invert() -- or transpose
@@ -400,25 +477,14 @@ function this.SwitchAnotherLook(self)
                     self.logger:debug(bodypart.mesh)
                     local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
-                    local socketName = sockets[part.type]
-                    if socketName then
-                        local socket = root:getObjectByName(socketName) --[[@as niNode?]]
+                    local socketInfo = sockets[part.type]
+                    if socketInfo and socketInfo.name then
+                        local socket = root:getObjectByName(socketInfo.name) --[[@as niNode?]]
                         if socket and socket.attachChild then
                             -- self.logger:debug("socket: %s from %d", s, part.type)
-                            self.logger:debug("transform: %s", socket.worldTransform.translation)
-                            self.logger:debug("rotation: %s", socket.worldTransform.rotation:toEulerXYZ())
-                            self.logger:debug("scale: %s", socket.worldTransform.scale)
-                            -- self.logger:debug("translation: %s", s.translation)
-                            -- local transform = toRelative * s.worldTransform:copy()
-                            -- local t = transform * tes3vector3.new(0,0,0)
-                            -- model.translation =  t:copy()
-                            -- local r = tes3matrix33.new()
-                            -- r:toIdentity()
-                            -- model.rotation = transform:copy() * r:copy()
-
-                            -- model.translation = transform.translation:copy()
-                            -- model.rotation = transform.rotation:copy()
-                            -- model.scale = transform.scale
+                            self.logger:trace("transform: %s", socket.worldTransform.translation)
+                            self.logger:trace("rotation: %s", socket.worldTransform.rotation:toEulerXYZ())
+                            self.logger:trace("scale: %s", socket.worldTransform.scale)
 
                             -- retarget
                             foreach(model, function (node)
@@ -432,22 +498,46 @@ function this.SwitchAnotherLook(self)
                                 end
                             end)
 
-                            -- extract root
-                            --model.rotation = socket.rotation:copy():invert()
-                            -- why wrong rotation?
-                            socket:attachChild(model)
-                            -- model.translation = socket.worldTransform:copy() * model.translation:copy()
-                            -- model.rotation = socket.worldTransform.rotation:copy()
-                            -- root:attachChild(model)
-                        else
-                            root:attachChild(model)
-                            self.logger:warn("not find socket %s, %s", socketName, model.name )
-                        end
-                    end
+                            -- below maybe no need with skinning
 
-                    --self.another:attachChild(model)
+                            -- resolve offset
+                            local offsetNode = model:getObjectByName("BoneOffset")
+                            if offsetNode then
+                                tes3.messageBox(string.format("BoneOffset: %s", offsetNode.translation))
+                                self.logger:debug("BoneOffset: %s", offsetNode.translation)
+                                model.translation = offsetNode.translation:copy()
+                            end
+
+                            -- resolve left
+                            -- TODO get rid right or left mesh
+                            if socketInfo.isLeft then
+                                -- non uniform scale
+                                local mirror = tes3matrix33.new(
+                                    -1, 0, 0,
+                                    0, 1, 0,
+                                    0, 0, 1
+                                )
+                                local rotation = model.rotation:copy()
+                                --model.rotation = rotation:copy() * mirror:copy()
+                                model.rotation = mirror:copy() * rotation:copy()
+                                local t = model.translation:copy()
+                                model.translation = mirror:copy() * t:copy()
+                            end
+
+                            -- extract root
+                            socket:attachChild(model)
+                        else
+                            self.logger:warn("not find socket %s, %s", socketInfo.name, model.name )
+                            root:attachChild(model)
+                        end
+                    else
+                        self.logger:warn("invalid socket name %s", model.name )
+                        root:attachChild(model)
+                end
+
 
                 end
+                -- TODO apply race width, height scaling
                 -- TODO bounds and re-centering
                 self.another:updateEffects()
                 self.another:update()
@@ -463,6 +553,7 @@ function this.SwitchAnotherLook(self)
                 self.pivot:attachChild(self.another)
             end
             self.anotherLook = not self.anotherLook
+            self:PlaySound(not self.anotherLook)
         end
 
         if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
@@ -488,7 +579,6 @@ function this.SwitchAnotherLook(self)
 
 
             self.anotherLook = not self.anotherLook
-            self:PlaySound(self.anotherLook)
 
             -- apply same scale for particle
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
@@ -496,6 +586,7 @@ function this.SwitchAnotherLook(self)
             -- just swap, no adjust centering
             self.pivot:update()
             self.pivot:updateEffects()
+            self:PlaySound(self.anotherLook)
         end
 
         if self.anotherData.type == settings.anotherLookType.Book and self.anotherData.data.text then
@@ -511,6 +602,46 @@ function this.SwitchAnotherLook(self)
 
 end
 
+---@param self Inspector
+function this.SwitchLighting(self)
+    -- next type
+    local lighting = self.lighting + 1
+    if lighting > table.size(settings.lightingType) then -- mod, avoid floor
+       lighting = 1
+    end
+    local prev = GetCamera(self.lighting)
+    local next, fovX = GetCamera(lighting)
+    if prev and next then
+        self.logger:debug("Switch lighting: %d -> %d", self.lighting, lighting)
+        -- Currently the only difference in lighting is the camera
+
+        -- recalculate base scale, fov changed
+        -- but different perspective due to changes in angle of view will occur.
+        local cameraData = next.cameraData
+        local bounds = self.anotherLook and self.anotherBounds or self.originalBounds
+        if bounds then
+            local baseScale = self:ComputeFittingScale(bounds, cameraData, self.distance, fovX, fittingRatio)
+            self.baseScale = baseScale
+
+            -- rescale limit
+            -- Or always use the camera with the widest field of view of those you plan to use.
+            local limit = math.max(self.zoomMax / self.baseScale, 1)
+            self.zoomEnd = math.clamp(self.zoomEnd, 0.5, limit)
+
+            local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
+            self:SetScale(scale)
+        end
+
+        prev.cameraRoot:detachChild(self.root)
+        next.cameraRoot:attachChild(self.root) -- lighting == settings.lightingType.Constant
+        prev.cameraRoot:update()
+        next.cameraRoot:update()
+        self.lighting = lighting
+    else
+        self.logger:error("Failed to find camera for switching lighting.")
+    end
+end
+
 function this.ResetPose(self)
     self.logger:debug("Reset pose")
     if self.root then
@@ -518,9 +649,7 @@ function this.ResetPose(self)
         self.zoomStart = 1
         self.zoomEnd = 1
         self.zoomTime = zoomDuration
-
         self.root.rotation = self.baseRotation:copy()
-
         self:SetScale(1)
     end
 end
@@ -529,6 +658,13 @@ end
 ---@return niNode
 ---@return niNode
 local function SetupNode(offset)
+
+    -- doesnt work...
+    -- FIXME Menu camera does not draw first with attachment at the top and sorting off.
+    ---@diagnostic disable-next-line: undefined-global
+    -- local pivot = niSortAdjustNode.new()
+    -- pivot.sortingMode = 1 -- ni.sortAdjustMode.off
+
     local pivot = niNode.new() -- pivot node
     pivot.name = "InspectIt:Pivot"
     -- If transparency is included, it may not work unless it is specified on a per material.
@@ -542,10 +678,11 @@ local function SetupNode(offset)
     stencilProperty.name = "InspectIt:NoCull"
     stencilProperty.drawMode = 3 -- DRAW_BOTH
     pivot:attachProperty(stencilProperty)
-    -- local vertexColorProperty = niVertexColorProperty.new()
-    -- vertexColorProperty.name = "InspectIt:emiAmbDif"
-    -- vertexColorProperty.source = 2
-    -- pivot:attachProperty(vertexColorProperty)
+    local vertexColorProperty = niVertexColorProperty.new()
+    vertexColorProperty.name = "InspectIt:emiAmbDif"
+    vertexColorProperty.lighting = 1 -- ni.lightingMode.emiAmbDif
+    vertexColorProperty.source = 2 -- ni.sourceVertexMode.ambDiff
+    pivot:attachProperty(vertexColorProperty)
     pivot.appCulled = false
 
     local root = niNode.new()
@@ -560,11 +697,10 @@ end
 ---@param bounds tes3boundingBox
 ---@param cameraData tes3worldControllerRenderCameraData
 ---@param distance number
----@param mgeFov number
+---@param fovX number
 ---@param ratio number
 ---@return number
-function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ratio)
-    local fovX = mgeFov-- or cameraData.fov
+function this.ComputeFittingScale(self, bounds, cameraData, distance, fovX, ratio)
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
     local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * ratio
@@ -584,7 +720,7 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance, mgeFov, ra
 
     local scale = screenSize / boundsSize
 
-    self.logger:debug("MGE near: %f, fov: %f", mge.camera.nearRenderDistance, mgeFov)
+    self.logger:debug("use fovX: %f, MGE near: %f", fovX, mge.camera.nearRenderDistance)
     self.logger:debug("Camera near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
         cameraData.fov)
     self.logger:debug("Camera viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
@@ -608,6 +744,8 @@ function this.Activate(self, params)
     end
 
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    -- DumpSceneGraph(model)
+
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
 
@@ -695,7 +833,6 @@ function this.Activate(self, params)
         local imin = my + mz;
         self.logger:debug("axis: max %d, min %d", imax, imin)
 
-
         -- it seems that area ratio would be a better result.
         if imax == 1 or imin == 2 then -- depth is maximum or height is minimum, y-up
         -- if imax == 1 then -- just depth is maximum
@@ -709,14 +846,23 @@ function this.Activate(self, params)
     self.root = root
     self.pivot = pivot
     self.original = model
+    self.originalBounds = bounds
+    self.anotherBounds = bounds -- FIXME currently same
     self.another = nil
     self.anotherLook = false
+    self.distance = distance
+    -- self.lighting = settings.lightingType.Default -- Probably more convenient to carry over previous values
 
     -- initial scaling
-    local camera = tes3.worldController.armCamera
+    -- FIXME It does not work correctly while rotating the camera while holding down the tab key during TPV.
+    local camera, fovX = GetCamera(self.lighting)
+    if not camera then
+        self.logger:error("Camera not found")
+        return
+    end
     local cameraRoot = camera.cameraRoot
     local cameraData = camera.cameraData
-    local scale = self:ComputeFittingScale(bounds, cameraData, distance, mge.camera.fov, fittingRatio)
+    local scale = self:ComputeFittingScale(bounds, cameraData, distance, fovX, fittingRatio)
 
     self.baseScale = root.scale
     self:SetScale(scale)
@@ -729,16 +875,27 @@ function this.Activate(self, params)
     self.zoomTime = zoomDuration
 
     -- zoom limitation
-    local extents = (bounds.max - bounds.min) * 0.5 * self.baseScale
+    local extents = (bounds.max - bounds.min) * 0.5 -- * self.baseScale
     self.logger:debug("bounds extents %s", extents)
     local halfLength = extents:length()
     -- halfLength = math.max(extents.x, extents.y, extents.z, 0)
     -- Offset because it is clipped before the near clip for some reason.
     local clipOffset = 3
+    -- I would expect the near to be the same even if the camera is different, and it is.
     local limitScale = math.max(distance - (cameraData.nearPlaneDistance + clipOffset), cameraData.nearPlaneDistance) / math.max(halfLength, math.fepsilon)
-    self.logger:debug("halfLength %f, limitScale %f", halfLength, limitScale)
-    self.zoomMax = math.max(limitScale, 1)
+    self.logger:debug("halfLength %f, limitScale %f (%f)", halfLength, limitScale, limitScale / self.baseScale)
+    self.zoomMax = limitScale -- relative scale, apply base scale after
+    --self.zoomMax = math.max(limitScale / self.baseScale, 1)
     -- self.zoomMax = 2
+
+    -- local ref = tes3.createReference({ object = target, position = tes3vector3.new(0,0,0), orientation = tes3vector3.new(0,0,0) })
+    -- local light = niPointLight.new()
+    -- light:setAttenuationForRadius(256)
+    -- light.diffuse = niColor.new(1,1,1)
+    -- light.ambient = niColor.new(0,0,0)
+    -- light.dimmer = 1
+    -- local l = tes3.player:getOrCreateAttachedDynamicLight(light)
+    -- self.root:attachChild(l.light)
 
     cameraRoot:attachChild(root)
     cameraRoot:update()
@@ -751,8 +908,12 @@ function this.Activate(self, params)
     self.activateCallback = function(e)
         self:OnActivate(e)
     end
+    -- TODO if it have
     self.switchAnotherLookCallback = function()
         self:SwitchAnotherLook()
+    end
+    self.switchLightingCallback = function()
+        self:SwitchLighting()
     end
     self.resetPosecCallback = function()
         self:ResetPose()
@@ -760,6 +921,7 @@ function this.Activate(self, params)
     event.register(tes3.event.enterFrame, self.enterFrameCallback)
     event.register(tes3.event.activate, self.activateCallback)
     event.register(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
+    event.register(settings.switchLightingEventName, self.switchLightingCallback)
     event.register(settings.resetPoseEventName, self.resetPosecCallback)
 
     -- It is better to play the sound in another controller, but it is easy to depend on the inspector's state, so run it in that.
@@ -774,8 +936,8 @@ end
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
     if self.root then
-        if tes3.worldController and tes3.worldController.armCamera then
-            local camera = tes3.worldController.armCamera
+        local camera = GetCamera(self.lighting)
+        if camera then
             local cameraRoot = camera.cameraRoot
             cameraRoot:detachChild(self.root)
         end
@@ -783,10 +945,12 @@ function this.Deactivate(self, params)
         event.unregister(tes3.event.enterFrame, self.enterFrameCallback)
         event.unregister(tes3.event.activate, self.activateCallback)
         event.unregister(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
+        event.unregister(settings.switchLightingEventName, self.switchLightingCallback)
         event.unregister(settings.resetPoseEventName, self.resetPosecCallback)
         self.enterFrameCallback = nil
         self.activateCallback = nil
         self.switchAnotherLookCallback = nil
+        self.switchLightingCallback = nil
         self.resetPosecCallback = nil
 
         if not params.menuExit then
@@ -796,7 +960,9 @@ function this.Deactivate(self, params)
     self.pivot = nil
     self.root = nil
     self.original = nil
+    self.originalBounds = nil
     self.another = nil
+    self.anotherBounds = nil
     self.anotherData = nil
     self.objectId = nil
     self.objectType = nil
@@ -811,6 +977,7 @@ function this.Reset(self)
     self.anotherData = nil
     self.objectId = nil
     self.objectType = nil
+    self.lighting = settings.lightingType.Default
 end
 
 return this

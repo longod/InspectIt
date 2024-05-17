@@ -39,6 +39,16 @@ local function OnModConfigReady(e)
             allowMouse = false,
         })
         input:createKeyBinder({
+            label = settings.i18n("mcm.input.lighting.label"),
+            description = settings.i18n("mcm.input.lighting.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "lighting",
+                table = config.input,
+            }),
+            allowCombinations = true,
+            allowMouse = false,
+        })
+        input:createKeyBinder({
             label = settings.i18n("mcm.input.reset.label"),
             description = settings.i18n("mcm.input.reset.description"),
             variable = mwse.mcm.createTableVariable({
