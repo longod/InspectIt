@@ -208,7 +208,7 @@ local function EnterInspection()
         end
     end
 
-    logger:info("Enter Inspection: %s", context.target.name)
+    logger:info("Enter Inspection: %s (%s)", context.target.name, context.target.id)
 
     ---@type Activate.Params
     local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description, name = name }
