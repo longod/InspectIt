@@ -493,6 +493,7 @@ function this.SwitchAnotherLook(self)
                                         for index, bone in ipairs(node.skinInstance.bones) do
                                             node.skinInstance.bones[index] = root:getObjectByName(bone.name)
                                         end
+                                        -- node.skinInstance.root = skeletal -- TODO need?
                                         self.logger:debug("skin: %s", node.name)
                                     end
                                 end
@@ -744,7 +745,22 @@ function this.Activate(self, params)
     end
 
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-    -- DumpSceneGraph(model)
+    foreach(model, function(node)
+        if not node.parent then
+            return
+        end
+        if node:isInstanceOfType(ni.type.RootCollisionNode) then
+            -- remove collision mesh
+            node.parent:detachChild(node)
+        elseif node:isOfType(ni.type.NiTriShape) then
+            -- remove shadow mesh
+            -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_10.htm
+            if node.name and node.name:lower():startswith("tri shadow") then
+                node.parent:detachChild(node)
+            end
+        end
+    end)
+    DumpSceneGraph(model)
 
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
@@ -763,8 +779,26 @@ function this.Activate(self, params)
             if node:isOfType(ni.type.NiTriShape) then
                 ---@cast node niTriShape
                 local data = node.data
-                -- transformed? maybe no.
                 local transform = node.worldTransform:copy()
+                if node.skinInstance and node.skinInstance.root then
+                    -- skinning seems still skeleton relative
+                    -- correct mul order?
+                    transform = node.skinInstance.root.worldTransform:copy() * transform:copy()
+                end
+
+                --[[
+                self.logger:debug(tostring(node))
+                if node.properties then
+                    local prop = node.properties
+                    while prop and prop.data do
+                        self.logger:debug(tostring(prop.data))
+                        prop = prop.next
+                    end
+                end
+                local bb = node:createBoundingBox()
+                self.logger:debug(tostring(bb))
+                --]]
+
                 for _, vert in ipairs(data.vertices) do
                     local v = transform * vert:copy()
                     bounds.max.x = math.max(bounds.max.x, v.x);
