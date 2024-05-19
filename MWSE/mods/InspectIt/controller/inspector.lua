@@ -123,17 +123,20 @@ local function foreach(node, func)
     end
 end
 
----@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
----@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, parent : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, depth : number)
----@param parent niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?
----@param depth number?
-local function traverse(node, func, parent, depth)
+-- advanced traverser, allow nil, more info
+---@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?
+---@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, depth : number)
+---@param depth integer?
+local function traverse(node, func, depth)
     depth = depth or 0
-    func(node, parent, depth)
-    if node.children then
-        for _, child in ipairs(node.children) do
-            if child then
-                traverse(child, func, node, depth + 1)
+    func(node, depth)
+    if node and node.children then
+        local count = #node.children
+        if count == 1 and not node.children[1] then -- always allocated dummy [1]
+        else
+            local d = depth + 1
+            for _, child in ipairs(node.children) do
+                traverse(child, func, d)
             end
         end
     end
@@ -144,12 +147,23 @@ local function DumpSceneGraph(root)
     -- TODO json format
     local str = {}
     traverse(root,
-        function(node, parent, depth)
-            local indent = string.rep("    ", depth) .. "- "
-            local out = string.format("%s:%s", node.RTTI.name, tostring(node.name))
-            table.insert(str, indent .. out)
+        function(node, depth)
+            local indent = string.rep("    ", depth)
+            if node then
+                local out = string.format("%s:%s", node.RTTI.name, tostring(node.name))
+                if node.translation and node.rotation and node.scale then
+                    out = out .. "\n" .. indent .. string.format("  local trans %s, rot %s, scale %f", node.translation, node.rotation, node.scale)
+                end
+                if node.worldTransform then
+                    out = out .. "\n" .. indent .. string.format("  world trans %s, rot %s, scale %f", node.worldTransform.translation, node.worldTransform.rotation, node.worldTransform.scale)
+                end
+                table.insert(str, indent .. "- " .. out)
+            else
+                table.insert(str, indent .. "- " .. "nil")
+            end
         end)
     require("InspectIt.logger"):debug("\n" .. table.concat(str, "\n"))
+    -- return str
 end
 
 ---@param lighting LightingType
@@ -267,17 +281,17 @@ function this.GetOrientation(self, object, bounds)
     elseif object.objectType == tes3.objectType.book then
         local size = bounds.max - bounds.min
         local ratio = size.y / math.max(size.x, math.fepsilon)
+        self.logger:debug("book ratio %f / %f = %f", size.y, size.x, ratio)
         ---@cast object tes3book
         if object.type == tes3.bookType.book then
+            -- FIXME The Third Door (BookSkill_Axe1) bounds.x wrong
             -- opened or closed
-            self.logger:debug("book ratio %f / %f = %f", size.y, size.x, ratio)
             if ratio > 1.75 then -- opened and rotation
                 return tes3vector3.new(-90, 0, 90)
             end
             return tes3vector3.new(-90, 0, 0) -- closed
         else
-            -- FIXME The Third Door (BookSkill_Axe1) bounds.x wrong
-            if ratio < 0.5 then -- rolled scroll?
+            if ratio < 0.35 then -- rolled scroll?
                 return tes3vector3.new(0, 0, 0)
             end
             -- some papers front face are mismatched...
@@ -517,6 +531,7 @@ function this.SwitchAnotherLook(self)
                 -- ground
                 local root = tes3.player.object.sceneNode:clone() --[[@as niNode]]
                 DumpSceneGraph(root)
+                self.logger:debug("Load base mesh %s: ", tes3.player.object.mesh)
                 root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
                 if not root then
                     self.logger:error("Failed to load: %s", tes3.player.object.mesh)
@@ -555,7 +570,7 @@ function this.SwitchAnotherLook(self)
                     local bodypart = part.part
 
                     -- no hieralchy
-                    self.logger:debug(bodypart.mesh)
+                    self.logger:debug("Load bodypart mesh %s: ", bodypart.mesh)
                     local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
                     local socketInfo = sockets[part.type]
@@ -642,6 +657,7 @@ function this.SwitchAnotherLook(self)
 
             if not self.another then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
+                self.logger:debug("Load weapon sheathing mesh %s: ", data.path)
                 self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
                 if not self.another  then
                     self.logger:error("Failed to load %s", data.path)
@@ -825,6 +841,7 @@ function this.Activate(self, params)
         return
     end
 
+    self.logger:debug("Load mesh %s: ", mesh)
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
     foreach(model, function(node)
         if not node.parent then
@@ -862,33 +879,51 @@ function this.Activate(self, params)
                 local data = node.data
                 local transform = node.worldTransform:copy()
                 if node.skinInstance and node.skinInstance.root then
-                    -- skinning seems still skeleton relative
-                    -- correct mul order?
+                    -- skinning seems still skeleton relative or the original world coords from the root to this node
+                    -- correct mul order? or just copy.
                     transform = node.skinInstance.root.worldTransform:copy() * transform:copy()
                 end
 
-                --[[
-                self.logger:debug(tostring(node))
-                if node.properties then
-                    local prop = node.properties
-                    while prop and prop.data do
-                        self.logger:debug(tostring(prop.data))
-                        prop = prop.next
-                    end
-                end
-                local bb = node:createBoundingBox()
-                self.logger:debug(tostring(bb))
-                --]]
-
+                -- object world bounds
+                local max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
+                local min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
                 for _, vert in ipairs(data.vertices) do
                     local v = transform * vert:copy()
-                    bounds.max.x = math.max(bounds.max.x, v.x);
-                    bounds.max.y = math.max(bounds.max.y, v.y);
-                    bounds.max.z = math.max(bounds.max.z, v.z);
-                    bounds.min.x = math.min(bounds.min.x, v.x);
-                    bounds.min.y = math.min(bounds.min.y, v.y);
-                    bounds.min.z = math.min(bounds.min.z, v.z);
+                    max.x = math.max(max.x, v.x);
+                    max.y = math.max(max.y, v.y);
+                    max.z = math.max(max.z, v.z);
+                    min.x = math.min(min.x, v.x);
+                    min.y = math.min(min.y, v.y);
+                    min.z = math.min(min.z, v.z);
                 end
+
+                -- Some meshes seem to contain incorrect vertices.
+                -- Or calculations required to transform are still missing.
+                -- In especially 'Tri chest' of 'The Imperfect'.
+                -- worldBounds always seems correctly, but it's a sphere, lazy bounds. These need to be combined well.
+                local center = node.worldBoundOrigin
+                local radius = node.worldBoundRadius
+                local threshold = radius * 2 -- FIXME In theory, it should fit within the radius, but often it does not. Allow for more margin.
+                -- TODO distance squared
+                -- boundingbox is some distance away from bounding sphere.
+                if center:distance(max) > threshold or center:distance(min) > threshold then
+                    self.logger:debug("use bounding sphere: %s", tostring(node.name))
+                    self.logger:debug("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
+                    self.logger:debug("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())
+                    local smax = center:copy() + radius
+                    local smin = center:copy() - radius
+                    max = smax
+                    min = smin
+                end
+
+                -- merge all
+                bounds.max.x = math.max(bounds.max.x, max.x);
+                bounds.max.y = math.max(bounds.max.y, max.y);
+                bounds.max.z = math.max(bounds.max.z, max.z);
+                bounds.min.x = math.min(bounds.min.x, min.x);
+                bounds.min.y = math.min(bounds.min.y, min.y);
+                bounds.min.z = math.min(bounds.min.z, min.z);
+
             end
         end)
     end
