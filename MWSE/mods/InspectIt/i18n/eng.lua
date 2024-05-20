@@ -1,6 +1,7 @@
 return {
     ["messageBox.unsupport.text"] = "[%{modName}] It is not yet supported for inspection.",
-    ["guide.rotate.text"] = "Rotate: Mouse drag",
+    ["guide.rotate.text"] = "Rotate: Mouse left drag",
+    ["guide.translate.text"] = "Move: Mouse middle drag",
     ["guide.zoom.text"] = "Zoom: Mouse wheel",
     ["guide.another.text"] = "Switch another",
     ["guide.lighting.text"] = "Switch lighting",

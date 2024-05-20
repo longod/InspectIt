@@ -93,7 +93,6 @@ local function CreateButton(parent, text, label, buttonId)
     row.autoWidth = true
     row.autoHeight = true
     row.childAlignY = 0.5
-    row.paddingAllSides = 2
     local button = row:createButton({ id = buttonId, text = text })
     row:createLabel({ text = label })
     return button, row
@@ -143,9 +142,13 @@ function this.Activate(self, params)
         block.autoWidth = true
         block.autoHeight = true
         block.childAlignX = 0.5
+        block.paddingLeft = 2
+        block.paddingRight = 2
+
         block:createDivider().widthProportional = 1.0
-        block:createLabel({ text = settings.i18n("guide.rotate.text") }).borderAllSides = 2
-        block:createLabel({ text = settings.i18n("guide.zoom.text") }).borderAllSides = 2
+        block:createLabel({ text = settings.i18n("guide.rotate.text") })
+        block:createLabel({ text = settings.i18n("guide.translate.text") })
+        block:createLabel({ text = settings.i18n("guide.zoom.text") })
 
         -- another/activate
         if params.another.type ~= nil then
@@ -201,7 +204,9 @@ function this.Activate(self, params)
         block.autoHeight = true
         block.paddingAllSides = 8
         --block.childAlignX = 0.5
-        block:createLabel({ text = params.description }).alpha = 0.95 -- .borderAllSides = 2
+        local label = block:createLabel({ text = params.description })
+        -- label.color = tes3ui.getPalette(tes3.palette.headerColor)
+        label.alpha = 0.95 -- .borderAllSides = 2
         help:updateLayout()
 
         event.register(tes3.event.enterFrame, OnEnterFrame)

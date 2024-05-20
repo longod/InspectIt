@@ -5,9 +5,12 @@ local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
 local velocityEpsilon = 0.000001
-local friction = 0.1     -- Attenuation with respect to velocity
-local resistance = 3.0   -- Attenuation with respect to time
-local fittingRatio = 0.9 -- Ratio to fit the screen
+local velocityThreshold = 0 -- pixel
+local frictionRotation = 0.1     -- Attenuation with respect to velocity
+local resistanceRotation = 3.0   -- Attenuation with respect to time
+local frictionTranslation = 0.00001     -- Attenuation with respect to velocity
+local resistanceTranslation = 9.0   -- Attenuation with respect to time
+local fittingRatio = 0.5 -- Ratio to fit the screen
 
 -- fixed orientation
 local orientations = {
@@ -58,6 +61,7 @@ local orientations = {
 ---@field switchLightingCallback fun()?
 ---@field resetPosecCallback fun()?
 ---@field angularVelocity tes3vector3 -- vec2 doesnt have dot
+---@field velocity tes3vector3 -- vec2 doesnt have dot
 ---@field baseRotation tes3matrix33
 ---@field baseScale number
 ---@field zoomStart number
@@ -71,7 +75,7 @@ local orientations = {
 ---@field anotherData? AnotherLookData
 ---@field anotherLook boolean
 ---@field lighting LightingType
----@field distance number
+---@field distance tes3vector3 half width, distance, half height
 ---@field objectId string? object id
 ---@field objectType tes3.objectType?
 local this = {}
@@ -83,6 +87,7 @@ local defaults = {
     pivot = nil,
     enterFrame = nil,
     angularVelocity = tes3vector3.new(0, 0, 0),
+    velocity = tes3vector3.new(0, 0, 0),
     baseRotation = tes3matrix33.new(),
     baseScale = 1,
     zoomStart = 1,
@@ -96,7 +101,7 @@ local defaults = {
     anotherData = nil,
     anotherLook = false,
     lighting = settings.lightingType.Default,
-    distance = 20,
+    distance = tes3vector3.new(20, 20, 20),
     objectId = nil,
     objectType = nil,
 }
@@ -406,6 +411,7 @@ function this.OnEnterFrame(self, e)
         local wc = tes3.worldController
         local ic = wc.inputController
 
+        -- scale
         local zoom = ic.mouseState.z
         if math.abs(zoom) > zoomThreshold then
             zoom = zoom * 0.001 * config.input.sensitivityZ * (config.input.inversionZ and -1 or 1)
@@ -425,7 +431,8 @@ function this.OnEnterFrame(self, e)
             self:SetScale(scale)
         end
 
-        if ic:isMouseButtonDown(0) then
+        if ic:isMouseButtonDown(0) then -- left click
+            -- rotate
             local zAngle = ic.mouseState.x
             local xAngle = ic.mouseState.y
 
@@ -441,6 +448,22 @@ function this.OnEnterFrame(self, e)
 
             self.angularVelocity.z = zAngle
             self.angularVelocity.x = xAngle
+        elseif ic:isMouseButtonDown(2) then -- middle click
+            -- translate
+            local modifier = self.distance.y * 0.5
+            local horizontal = ic.mouseState.x * modifier
+            local vertical = ic.mouseState.y * -modifier
+            if math.abs(horizontal) <= velocityThreshold then
+                horizontal = 0
+            end
+            if math.abs(vertical) <= velocityThreshold then
+                vertical = 0
+            end
+            -- need inversion? another sensitivity and inversion config?
+            horizontal = horizontal * wc.mouseSensitivityX * config.input.sensitivityX * (config.input.inversionX and -1 or 1)
+            vertical = vertical * wc.mouseSensitivityY * config.input.sensitivityY * (config.input.inversionY and -1 or 1)
+            self.velocity.x = horizontal
+            self.velocity.z = vertical
         end
 
         if self.angularVelocity:dot(self.angularVelocity) > velocityEpsilon then
@@ -461,8 +484,18 @@ function this.OnEnterFrame(self, e)
             m:fromQuaternion(dest)
             self.root.rotation = m:copy()
 
-            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * friction,
-                math.clamp(e.delta * resistance, 0, 1))
+            -- No basis in physics.
+            self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * frictionRotation,
+                math.clamp(e.delta * resistanceRotation, 0, 1))
+        end
+        if self.velocity:dot(self.velocity) > velocityEpsilon then
+            -- center vs corners
+            local dest = self.root.translation:copy() + self.velocity:copy()
+            dest.x = math.clamp(dest.x, -self.distance.x, self.distance.x)
+            dest.z = math.clamp(dest.z, -self.distance.z, self.distance.z)
+            self.root.translation = dest
+            self.velocity = self.velocity:lerp(self.velocity * frictionTranslation,
+                math.clamp(e.delta * resistanceTranslation, 0, 1))
         end
         -- local euler = self.root.rotation:toEulerXYZ():copy()
         -- tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
@@ -531,7 +564,7 @@ function this.SwitchAnotherLook(self)
                 -- ground
                 local root = tes3.player.object.sceneNode:clone() --[[@as niNode]]
                 DumpSceneGraph(root)
-                self.logger:debug("Load base mesh %s: ", tes3.player.object.mesh)
+                self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
                 root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
                 if not root then
                     self.logger:error("Failed to load: %s", tes3.player.object.mesh)
@@ -570,7 +603,7 @@ function this.SwitchAnotherLook(self)
                     local bodypart = part.part
 
                     -- no hieralchy
-                    self.logger:debug("Load bodypart mesh %s: ", bodypart.mesh)
+                    self.logger:debug("Load bodypart mesh : %s", bodypart.mesh)
                     local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
                     local socketInfo = sockets[part.type]
@@ -657,7 +690,7 @@ function this.SwitchAnotherLook(self)
 
             if not self.another then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
-                self.logger:debug("Load weapon sheathing mesh %s: ", data.path)
+                self.logger:debug("Load weapon sheathing mesh : %s", data.path)
                 self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
                 if not self.another  then
                     self.logger:error("Failed to load %s", data.path)
@@ -718,7 +751,7 @@ function this.SwitchLighting(self)
         local cameraData = next.cameraData
         local bounds = self.anotherLook and self.anotherBounds or self.originalBounds
         if bounds then
-            local baseScale = self:ComputeFittingScale(bounds, cameraData, self.distance, fovX, fittingRatio)
+            local baseScale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, self.distance.y, fovX, fittingRatio)
             self.baseScale = baseScale
 
             -- rescale limit
@@ -728,6 +761,15 @@ function this.SwitchLighting(self)
 
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self:SetScale(scale)
+
+            -- clamp translation
+            local dest = self.root.translation:copy()
+            dest.x = dest.x / self.distance.x  -- to ratio
+            dest.z = dest.z / self.distance.z  -- to ratio
+            self.distance = tes3vector3.new(distanceWidth * 0.5, self.distance.y, distanceHeight * 0.5)
+            dest.x = math.clamp(dest.x * self.distance.x, -self.distance.x, self.distance.x)
+            dest.z = math.clamp(dest.z * self.distance.z, -self.distance.z, self.distance.z)
+            self.root.translation = dest
         end
 
         prev.cameraRoot:detachChild(self.root)
@@ -744,11 +786,14 @@ function this.ResetPose(self)
     self.logger:debug("Reset pose")
     if self.root then
         self.angularVelocity = tes3vector3.new(0, 0, 0)
+        self.velocity = tes3vector3.new(0, 0, 0)
         self.zoomStart = 1
         self.zoomEnd = 1
         self.zoomTime = zoomDuration
         self.root.rotation = self.baseRotation:copy()
         self:SetScale(1)
+        self.root.translation = tes3vector3.new(0, self.distance.y, 0)
+        self.root:update()
     end
 end
 
@@ -797,14 +842,17 @@ end
 ---@param distance number
 ---@param fovX number
 ---@param ratio number
----@return number
+---@return number scale
+---@return number width
+---@return number height
 function this.ComputeFittingScale(self, bounds, cameraData, distance, fovX, ratio)
     local aspectRatio = cameraData.viewportHeight / cameraData.viewportWidth
     local tan = math.tan(math.rad(fovX) * 0.5)
-    local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * ratio
+    local width = tan * math.max(distance, cameraData.nearPlaneDistance + 1) * 2.0
     local height = width * aspectRatio
+    -- The cubes like the wooden box should be a perfect fit, but for some reason they don't match.
     -- conservative
-    local screenSize = math.min(width, height)
+    local screenSize = math.min(width, height) * ratio
     local size = bounds.max - bounds.min
     local boundsSize = math.max(size.x, size.y, size.z, math.fepsilon)
 
@@ -824,7 +872,7 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance, fovX, rati
     self.logger:debug("Camera viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
     self.logger:debug("Distant width: %f, height: %f, fovX: %f", width, height, fovX)
     self.logger:debug("Fitting scale: %f", scale)
-    return scale
+    return scale, width , height
 end
 
 ---@param self Inspector
@@ -841,7 +889,7 @@ function this.Activate(self, params)
         return
     end
 
-    self.logger:debug("Load mesh %s: ", mesh)
+    self.logger:debug("Load mesh : %s", mesh)
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
     foreach(model, function(node)
         if not node.parent then
@@ -864,6 +912,7 @@ function this.Activate(self, params)
     model.scale = 1
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
+    DumpSceneGraph(model)
 
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
@@ -966,7 +1015,6 @@ function this.Activate(self, params)
     self.anotherBounds = bounds -- FIXME currently same
     self.another = nil
     self.anotherLook = false
-    self.distance = distance
     -- self.lighting = settings.lightingType.Default -- Probably more convenient to carry over previous values
 
     -- initial scaling
@@ -978,12 +1026,14 @@ function this.Activate(self, params)
     end
     local cameraRoot = camera.cameraRoot
     local cameraData = camera.cameraData
-    local scale = self:ComputeFittingScale(bounds, cameraData, distance, fovX, fittingRatio)
+    local scale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, distance, fovX, fittingRatio)
+    self.distance = tes3vector3.new(distanceWidth * 0.5, distance, distanceHeight * 0.5)
 
     self.baseScale = root.scale
     self:SetScale(scale)
 
     self.angularVelocity = tes3vector3.new(0, 0, 0)
+    self.velocity = tes3vector3.new(0, 0, 0)
     self.baseRotation = root.rotation:copy()
     self.baseScale = scale
     self.zoomStart = 1

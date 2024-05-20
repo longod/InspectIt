@@ -8,7 +8,7 @@ This mod allow you to inspect a variety of objects.
 - You can inspect an object by pressing the assigned key binding (default: `F2`) when you mouseover an item in the inventory or you look at an activatable object with the crosshair.
 
 ### During Inspection
-- You can rotate and zoom an object with your mouse.
+- You can rotate, move and zoom an object with your mouse.
 - If there is another look, you can switch to it. E.g., a sheathed weapon or the contents of a book or scroll.
 - To finish the inspection, press the same key binding as for the beginning.
 
