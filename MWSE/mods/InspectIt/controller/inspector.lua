@@ -299,7 +299,7 @@ function this.GetOrientation(self, object, bounds)
             if ratio < 0.35 then -- rolled scroll?
                 return tes3vector3.new(0, 0, 0)
             end
-            -- some papers front face are mismatched...
+            -- FIXME papers are wired. mirrored as in left part.
             if size.z < 3 then
                 return tes3vector3.new(-90, 180, 0)
             end
@@ -912,7 +912,7 @@ function this.Activate(self, params)
     model.scale = 1
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
-    DumpSceneGraph(model)
+    -- DumpSceneGraph(model)
 
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
