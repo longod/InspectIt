@@ -299,9 +299,8 @@ function this.GetOrientation(self, object, bounds)
             if ratio < 0.35 then -- rolled scroll?
                 return tes3vector3.new(0, 0, 0)
             end
-            -- FIXME papers are wired. mirrored as in left part.
             if size.z < 3 then
-                return tes3vector3.new(-90, 180, 0)
+                return tes3vector3.new(-90, 0, 0)
             end
             return tes3vector3.new(-90, 0, 0)
         end
@@ -990,6 +989,20 @@ function this.Activate(self, params)
     local root, pivot = SetupNode(distance)
     pivot.translation = offset
     pivot:attachChild(model)
+
+    -- When there are separate polygons on both sides, such as papers,
+    -- without backface culling, the back side seems to appear in the foreground depending on both position.
+    -- Here, the thickness is used to determine the paper, just as it is used to determine the paper.
+    do
+        local size = bounds.max - bounds.min
+        local thickness = math.min(size.x, size.y, size.z)
+        if thickness < 3 then
+            local props = pivot:getProperty(ni.propertyType.stencil)
+            if props then
+                props.drawMode = 0 -- DRAW_CCW_OR_BOTH
+            end
+        end
+    end
 
     -- initial rotation
     local findKey = function(o)
