@@ -890,19 +890,40 @@ function this.Activate(self, params)
 
     self.logger:debug("Load mesh : %s", mesh)
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    local isCreature = target.objectType == tes3.objectType.creature
+    -- clean
+    local bit = require("bit")
     foreach(model, function(node)
         if not node.parent then
             return
         end
-        if node:isInstanceOfType(ni.type.RootCollisionNode) then
-            -- remove collision mesh
-            node.parent:detachChild(node)
+        local remove = false
+        -- In OpenMW only except for creature, but is it bad for creature?
+        -- If it is because the animation changes the visibility, then it should be removed if there is no animation.
+        -- if not isCreature then
+        if bit.band(node.flags, 0x1) == 0x1 then -- invisible
+            remove = true
+            self.logger:trace("remove by visibility")
+        end
+        -- end
+        if node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
+            remove = true
+            self.logger:trace("remove by collision")
         elseif node:isOfType(ni.type.NiTriShape) then
-            -- remove shadow mesh
-            -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_10.htm
-            if node.name and node.name:lower():startswith("tri shadow") then
-                node.parent:detachChild(node)
+            if node.name then
+                local n = node.name:lower()
+                -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_1.htm
+                if n:startswith("tri shadow") then  -- shadow
+                    remove = true
+                    self.logger:trace("remove by tri shadow")
+                elseif n:startswith("tri bip") then -- dummy
+                    remove = true
+                    self.logger:trace("remove by tri bip")
+                end
             end
+        end
+        if remove then
+            node.parent:detachChild(node)
         end
     end)
     -- DumpSceneGraph(model)
