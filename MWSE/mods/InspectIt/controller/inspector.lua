@@ -365,7 +365,7 @@ function this.SetScale(self, scale)
     local prev = self.root.scale
     local newScale = math.max(self.baseScale * scale, math.fepsilon)
     self.root.scale = newScale
-    self.logger:trace("Zoom %f -> %f", prev, scale)
+    -- self.logger:trace("Zoom %f -> %f", prev, scale)
 
     -- rescale particle
     -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
@@ -414,7 +414,7 @@ function this.OnEnterFrame(self, e)
         local zoom = ic.mouseState.z
         if math.abs(zoom) > zoomThreshold then
             zoom = zoom * 0.001 * config.input.sensitivityZ * (config.input.inversionZ and -1 or 1)
-            self.logger:trace("Wheel: %f, wheel velocity %f", ic.mouseState.z, zoom)
+            -- self.logger:trace("Wheel: %f, wheel velocity %f", ic.mouseState.z, zoom)
             -- update current zooming
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self.zoomStart = scale
@@ -443,7 +443,7 @@ function this.OnEnterFrame(self, e)
             end
             zAngle = zAngle * wc.mouseSensitivityX * config.input.sensitivityX * (config.input.inversionX and -1 or 1)
             xAngle = xAngle * wc.mouseSensitivityY * config.input.sensitivityY * (config.input.inversionY and -1 or 1)
-            self.logger:trace("Mouse %f, %f, Angular velocity %f, %f", ic.mouseState.x, ic.mouseState.y, zAngle, xAngle)
+            -- self.logger:trace("Mouse %f, %f, Angular velocity %f, %f", ic.mouseState.x, ic.mouseState.y, zAngle, xAngle)
 
             self.angularVelocity.z = zAngle
             self.angularVelocity.x = xAngle
@@ -534,24 +534,24 @@ function this.SwitchAnotherLook(self)
                     [tes3.activeBodyPart.chest]         = { name = "Chest", },
                     [tes3.activeBodyPart.groin]         = { name = "Groin", },
                     [tes3.activeBodyPart.skirt]         = { name = "Groin", },
-                    [tes3.activeBodyPart.rightHand]     = { name = "Right Hand", },
+                    [tes3.activeBodyPart.rightHand]     = { name = "Right Hand", isLeft = false },
                     [tes3.activeBodyPart.leftHand]      = { name = "Left Hand", isLeft = true },
-                    [tes3.activeBodyPart.rightWrist]    = { name = "Right Wrist", },
+                    [tes3.activeBodyPart.rightWrist]    = { name = "Right Wrist", isLeft = false },
                     [tes3.activeBodyPart.leftWrist]     = { name = "Left Wrist", isLeft = true },
                     [tes3.activeBodyPart.shield]        = { name = "Shield Bone", },
-                    [tes3.activeBodyPart.rightForearm]  = { name = "Right Forearm", },
+                    [tes3.activeBodyPart.rightForearm]  = { name = "Right Forearm", isLeft = false },
                     [tes3.activeBodyPart.leftForearm]   = { name = "Left Forearm", isLeft = true },
-                    [tes3.activeBodyPart.rightUpperArm] = { name = "Right Upper Arm", },
+                    [tes3.activeBodyPart.rightUpperArm] = { name = "Right Upper Arm", isLeft = false },
                     [tes3.activeBodyPart.leftUpperArm]  = { name = "Left Upper Arm", isLeft = true },
-                    [tes3.activeBodyPart.rightFoot]     = { name = "Right Foot", },
+                    [tes3.activeBodyPart.rightFoot]     = { name = "Right Foot", isLeft = false },
                     [tes3.activeBodyPart.leftFoot]      = { name = "Left Foot", isLeft = true },
-                    [tes3.activeBodyPart.rightAnkle]    = { name = "Right Ankle", },
+                    [tes3.activeBodyPart.rightAnkle]    = { name = "Right Ankle", isLeft = false },
                     [tes3.activeBodyPart.leftAnkle]     = { name = "Left Ankle", isLeft = true },
-                    [tes3.activeBodyPart.rightKnee]     = { name = "Right Knee", },
+                    [tes3.activeBodyPart.rightKnee]     = { name = "Right Knee", isLeft = false },
                     [tes3.activeBodyPart.leftKnee]      = { name = "Left Knee", isLeft = true },
-                    [tes3.activeBodyPart.rightUpperLeg] = { name = "Right Upper Leg", },
+                    [tes3.activeBodyPart.rightUpperLeg] = { name = "Right Upper Leg", isLeft = false },
                     [tes3.activeBodyPart.leftUpperLeg]  = { name = "Left Upper Leg", isLeft = true },
-                    [tes3.activeBodyPart.rightPauldron] = { name = "Right Clavicle" },
+                    [tes3.activeBodyPart.rightPauldron] = { name = "Right Clavicle", isLeft = false },
                     [tes3.activeBodyPart.leftPauldron]  = { name = "Left Clavicle", isLeft = true },
                     [tes3.activeBodyPart.weapon]        = { name = "Weapon Bone", }, -- the real node name depends on the current weapon type.
                     [tes3.activeBodyPart.tail]          = { name = "Tail" },
@@ -561,24 +561,22 @@ function this.SwitchAnotherLook(self)
                 local data = self.anotherData.data ---@cast data BodyPartsData
 
                 -- ground
-                local root = tes3.player.object.sceneNode:clone() --[[@as niNode]]
-                DumpSceneGraph(root)
                 self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
-                root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
+                local root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
                 if not root then
                     self.logger:error("Failed to load: %s", tes3.player.object.mesh)
                     return
                 end
                 -- remove unnecessary nodes
                 foreach(root, function (node)
-                    if node:isInstanceOfType(ni.type.NiTriShape) then
-                        -- reconnect child?
+                    if node:isInstanceOfType(ni.type.NiTriShape) then -- startswith "tri bip"?
+                        -- collision?
                         if node.parent then
                             node.parent:detachChild(node)
                         end
                     end
                 end)
-                DumpSceneGraph(root)
+                --DumpSceneGraph(root)
                 -- skeletal root
                 local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
                 if skeletal then
@@ -587,26 +585,33 @@ function this.SwitchAnotherLook(self)
                     self.logger:trace("%s", skeletal.rotation)
                     self.logger:trace("%s", skeletal.scale)
                     root = skeletal
-                    -- local r = tes3matrix33.new()
-                    -- r:toIdentity()
-                    -- root.rotation = r
                 end
                 -- -- reset
                 root.translation = tes3vector3.new(0,0,0)
                 root.scale = 1
                 root:update() -- transform
+
                 self.another = root
-                local toRelative = root.worldTransform:copy():invert() -- or transpose
 
                 for _, part in ipairs(data.parts) do
                     local bodypart = part.part
-
-                    -- no hieralchy
-                    self.logger:debug("Load bodypart mesh : %s", bodypart.mesh)
-                    local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-
                     local socketInfo = sockets[part.type]
-                    if socketInfo and socketInfo.name then
+                    if socketInfo then
+                        self.logger:debug("Load bodypart mesh : %s", bodypart.mesh)
+                        local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+
+                        -- remove oppsite parts
+                        if socketInfo.isLeft ~= nil then
+                            local opposite = "tri " .. ((socketInfo.isLeft == true) and "right" or "left")
+                            foreach(model, function(node)
+                                if node:isInstanceOfType(ni.type.NiTriShape) and node.name and node.name:lower():startswith(opposite) then
+                                    node.parent:detachChild(node)
+                                    self.logger:trace("remove opposite mesh: %s", node.name)
+                                end
+                            end)
+                        end
+
+
                         local socket = root:getObjectByName(socketInfo.name) --[[@as niNode?]]
                         if socket and socket.attachChild then
                             -- self.logger:debug("socket: %s from %d", s, part.type)
@@ -621,9 +626,10 @@ function this.SwitchAnotherLook(self)
                                         for index, bone in ipairs(node.skinInstance.bones) do
                                             node.skinInstance.bones[index] = root:getObjectByName(bone.name)
                                         end
-                                        -- node.skinInstance.root = skeletal -- TODO need?
+                                        -- node.skinInstance.root = skeletal -- crash!
                                         self.logger:debug("skin: %s", node.name)
                                     end
+
                                 end
                             end)
 
@@ -638,8 +644,7 @@ function this.SwitchAnotherLook(self)
                             end
 
                             -- resolve left
-                            -- TODO get rid right or left mesh
-                            if socketInfo.isLeft then
+                            if socketInfo.isLeft == true then
                                 -- non uniform scale
                                 local mirror = tes3matrix33.new(
                                     -1, 0, 0,
@@ -651,6 +656,7 @@ function this.SwitchAnotherLook(self)
                                 model.rotation = mirror:copy() * rotation:copy()
                                 local t = model.translation:copy()
                                 model.translation = mirror:copy() * t:copy()
+                                self.logger:debug("mirror part")
                             end
 
                             -- extract root
@@ -660,8 +666,7 @@ function this.SwitchAnotherLook(self)
                             root:attachChild(model)
                         end
                     else
-                        self.logger:warn("invalid socket name %s", model.name )
-                        root:attachChild(model)
+                        self.logger:error("invalid body part %s", bodypart.id )
                 end
 
 
