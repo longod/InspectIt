@@ -1,5 +1,10 @@
-local settings = require("InspectIt.settings")
+
+---@class ModAssistance
 local this = {}
+
+local settings = require("InspectIt.settings")
+
+--- Right Click Menu Exit https://www.nexusmods.com/morrowind/mods/48458
 function this.RegisterRightClickMenuExit()
     local RightClickMenuExit = include("mer.RightClickMenuExit")
     if RightClickMenuExit and RightClickMenuExit.registerMenu then
@@ -10,6 +15,20 @@ function this.RegisterRightClickMenuExit()
     end
 end
 
+-- Weapon Sheathing https://www.nexusmods.com/morrowind/mods/46069
+---@param mesh string
+---@return string?
+function this.FindWeaponSheathingMesh(mesh)
+    if mesh then
+        local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
+        if tes3.getFileExists("meshes\\" .. sheathMesh) then
+            return sheathMesh
+        end
+    end
+    return nil
+end
+
+--- Tooltips Complete https://www.nexusmods.com/morrowind/mods/46842
 ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
 ---@param itemData tes3itemData?
 ---@return string?

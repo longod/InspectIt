@@ -1,6 +1,7 @@
 local base = require("InspectIt.controller.base")
 local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
+local ori = require("InspectIt.orientation")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
@@ -11,46 +12,6 @@ local resistanceRotation = 3.0   -- Attenuation with respect to time
 local frictionTranslation = 0.00001     -- Attenuation with respect to velocity
 local resistanceTranslation = 9.0   -- Attenuation with respect to time
 local fittingRatio = 0.5 -- Ratio to fit the screen
-
--- fixed orientation
-local orientations = {
-    -- [tes3.objectType.activator] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.alchemy] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.ammunition] = tes3vector3.new(-90, 0, -90),
-    [tes3.objectType.apparatus] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.armor] = tes3vector3.new(0, 0, 0), -- It's not aligned. It's a mess.
-    [tes3.objectType.bodyPart] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.book] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.cell] = tes3vector3.new(0, 0, 0),
-    --[tes3.objectType.clothing] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.container] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.creature] = tes3vector3.new(0, 0, -180),
-    -- [tes3.objectType.door] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.enchantment] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.ingredient] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.land] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.landTexture] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.leveledCreature] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.leveledItem] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.light] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.lockpick] = tes3vector3.new(-90, 0, -90),
-    -- [tes3.objectType.magicEffect] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.miscItem] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobileActor] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobileCreature] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobileNPC] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobilePlayer] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobileProjectile] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.mobileSpellProjectile] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.npc] = tes3vector3.new(0, 0, -180),
-    [tes3.objectType.probe] = tes3vector3.new(-90, 0, -90),
-    -- [tes3.objectType.reference] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.region] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.repairItem] = tes3vector3.new(-90, 0, -90),
-    -- [tes3.objectType.spell] = tes3vector3.new(0, 0, 0),
-    -- [tes3.objectType.static] = tes3vector3.new(0, 0, 0),
-    [tes3.objectType.weapon] = tes3vector3.new(-90, 0, -90),
-}
 
 ---@class Inspector : IController
 ---@field root niNode?
@@ -221,142 +182,6 @@ local function Ease(ratio, estart, eend)
     local t = EaseOutCubic(ratio)
     local v = math.lerp(estart, eend, t)
     return v
-end
-
----@param self Inspector
----@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
----@param bounds tes3boundingBox
----@return tes3vector3? degree
-function this.GetOrientation(self, object, bounds)
-    -- from table
-    local orientation = orientations[object.objectType]
-    if orientation then
-        return orientation
-    end
-
-    -- unique type
-    if object.objectType == tes3.objectType.armor then
-        ---@cast object tes3armor
-        local slot = {
-            [tes3.armorSlot.boots] = tes3vector3.new(0, 0, 0),
-            [tes3.armorSlot.cuirass] = tes3vector3.new(-90, 0, 0),
-            [tes3.armorSlot.greaves] = tes3vector3.new(-90, 0, 0),
-            [tes3.armorSlot.helmet] = tes3vector3.new(0, 0, 0),
-            [tes3.armorSlot.leftBracer] = tes3vector3.new(0, 0, 180),
-            [tes3.armorSlot.leftGauntlet] = tes3vector3.new(0, 0, 180),
-            [tes3.armorSlot.leftPauldron] = tes3vector3.new(0, 0, 180),
-            [tes3.armorSlot.rightBracer] = tes3vector3.new(0, 0, 0),
-            [tes3.armorSlot.rightGauntlet] = tes3vector3.new(0, 0, 0),
-            [tes3.armorSlot.rightPauldron] = tes3vector3.new(0, 0, 0),
-            [tes3.armorSlot.shield] = tes3vector3.new(-90, 0, 0),
-        }
-        local o = slot[object.slot]
-        if o then
-            return o
-        end
-    elseif object.objectType == tes3.objectType.clothing then
-        ---@cast object tes3clothing
-        local slot = {
-            [tes3.clothingSlot.amulet] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.belt] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.leftGlove] = tes3vector3.new(-90, 0, 180),
-            [tes3.clothingSlot.pants] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.rightGlove] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.ring] = tes3vector3.new(0, 0, 0),
-            [tes3.clothingSlot.robe] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.shirt] = tes3vector3.new(-90, 0, 0),
-            [tes3.clothingSlot.shoes] = tes3vector3.new(0, 0, 0),
-            [tes3.clothingSlot.skirt] = tes3vector3.new(-90, 0, 0),
-        }
-        local o = slot[object.slot]
-        if o then
-            return o
-        end
-    elseif object.objectType == tes3.objectType.bodyPart then
-        ---@cast object tes3bodyPart
-    elseif object.objectType == tes3.objectType.weapon then
-        ---@cast object tes3weapon
-        local weaponType = {
-            [tes3.weaponType.marksmanCrossbow] = tes3vector3.new(0, 0, -90),
-        }
-        local o = weaponType[object.type]
-        if o then
-            return o
-        end
-    elseif object.objectType == tes3.objectType.book then
-        local size = bounds.max - bounds.min
-        local ratio = size.y / math.max(size.x, math.fepsilon)
-        self.logger:debug("book ratio %f / %f = %f", size.y, size.x, ratio)
-        ---@cast object tes3book
-        if object.type == tes3.bookType.book then
-            -- FIXME The Third Door (BookSkill_Axe1) bounds.x wrong
-            -- opened or closed
-            if ratio > 1.75 then -- opened and rotation
-                return tes3vector3.new(-90, 0, 90)
-            end
-            return tes3vector3.new(-90, 0, 0) -- closed
-        else
-            if ratio < 0.35 then -- rolled scroll?
-                return tes3vector3.new(0, 0, 0)
-            end
-            if size.z < 3 then
-                return tes3vector3.new(-90, 0, 0)
-            end
-            return tes3vector3.new(-90, 0, 0)
-        end
-    elseif object.objectType == tes3.objectType.door then
-        -- expect axis aligned, almost centered
-        local size = bounds.max - bounds.min
-        if size.x > size.y then
-            -- whitch bold thickness? face has handles?
-            self.logger:debug("y-face %f, %f", bounds.max.y, bounds.min.y)
-            if math.abs(bounds.max.y) - math.abs(bounds.min.y) >= 0 then
-                return tes3vector3.new(0, 0, 0)
-            else
-                return tes3vector3.new(0, 0, 0) -- same face is front?
-            end
-        else
-            self.logger:debug("x-face %f, %f", bounds.max.x, bounds.min.x)
-            if math.abs(bounds.max.x) - math.abs(bounds.min.x) >= 0 then
-                return tes3vector3.new(0, 0, -90)
-            else
-                return tes3vector3.new(0, 0, 90)
-            end
-        end
-        -- TODO trap door
-    end
-
-    -- auto rotation
-    -- dominant axis based
-    -- TODO more better algorithm
-    local size = bounds.max - bounds.min
-    self.logger:debug("bounds size: %s", size)
-    local my = 0
-    if size.x < size.y and size.z < size.y then
-        my = 1
-    end
-    local mz = 0
-    if size.x < size.z and size.y < size.z then
-        mz = 2
-    end
-    local imax = my + mz;
-    my = 0
-    if size.x > size.y and size.z > size.y then
-        my = 1
-    end
-    mz = 0
-    if size.x > size.z and size.y > size.z then
-        mz = 2
-    end
-    local imin = my + mz;
-    self.logger:debug("axis: max %d, min %d", imax, imin)
-    if imax == 1 or imin == 2 then     -- depth is maximum or height is minimum, y-up
-        -- if imax == 1 then -- just depth is maximum
-        -- it seems that area ratio would be a better result.
-        return tes3vector3.new(-60, 0, 0)
-    end
-
-    return nil -- tes3vector3.new(0, 0, 0) -- default
 end
 
 ---@param self Inspector
@@ -601,6 +426,7 @@ function this.SwitchAnotherLook(self)
                         local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
                         -- remove oppsite parts
+                        -- TODO or try to allow just matching name
                         if socketInfo.isLeft ~= nil then
                             local opposite = "tri " .. ((socketInfo.isLeft == true) and "right" or "left")
                             foreach(model, function(node)
@@ -662,19 +488,23 @@ function this.SwitchAnotherLook(self)
                             -- extract root
                             socket:attachChild(model)
                         else
-                            self.logger:warn("not find socket %s, %s", socketInfo.name, model.name )
+                            self.logger:warn("not find socket %s, %s", socketInfo.name, model.name)
                             root:attachChild(model)
                         end
                     else
-                        self.logger:error("invalid body part %s", bodypart.id )
-                end
+                        self.logger:error("invalid body part %s", bodypart.id)
+                    end
 
-
                 end
-                -- TODO apply race width, height scaling
-                -- TODO bounds and re-centering
+                -- TODO apply race width, height scaling if npc base
                 self.another:updateEffects()
                 self.another:update()
+
+                local bounds = self.another:createBoundingBox()
+                local offset =  (bounds.max + bounds.min) * -0.5
+                self.logger:debug("another bounds: %s", bounds)
+                self.logger:debug("another offset: %s", offset)
+                self.anotherBounds = bounds:copy()
             end
 
             if self.anotherLook then
@@ -686,6 +516,7 @@ function this.SwitchAnotherLook(self)
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
             end
+            -- TODO bounds and re-centering
             self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
         end
@@ -895,6 +726,12 @@ function this.Activate(self, params)
 
     self.logger:debug("Load mesh : %s", mesh)
     local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+
+    -- if params.referenceNode then
+    --     model = params.referenceNode
+    --     DumpSceneGraph(model)
+    -- end
+
     local isCreature = target.objectType == tes3.objectType.creature
     -- clean
     local bit = require("bit")
@@ -935,6 +772,22 @@ function this.Activate(self, params)
 
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
+
+    local backface = false
+    -- TODO need check same mesh as right? and fileter
+    --[[
+    if target.isLeftPart then
+        -- item is Y-mirrored
+        local mirror = tes3matrix33.new(
+            1, 0, 0,
+            0, -1, 0,
+            0, 0, 1
+        )
+        local rotation = model.rotation:copy()
+        model.rotation = mirror:copy() * rotation:copy()
+        backface = true
+    end
+    --]]
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
     -- DumpSceneGraph(model)
@@ -1019,7 +872,7 @@ function this.Activate(self, params)
     -- When there are separate polygons on both sides, such as papers,
     -- without backface culling, the back side seems to appear in the foreground depending on both position.
     -- Here, the thickness is used to determine the paper, just as it is used to determine the paper.
-    do
+    if not backface then
         local size = bounds.max - bounds.min
         local thickness = math.min(size.x, size.y, size.z)
         if thickness < 3 then
@@ -1040,7 +893,7 @@ function this.Activate(self, params)
         return ""
     end
     self.logger:debug("objectType: %s", findKey(target.objectType))
-    local orientation = self:GetOrientation(target, bounds)
+    local orientation = ori.GetOrientation(target, bounds)
     if orientation then
         local rot = tes3matrix33.new()
         rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))

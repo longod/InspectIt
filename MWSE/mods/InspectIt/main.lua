@@ -18,6 +18,7 @@ local context = {
     enable = false,
     target = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
     itemData = nil, ---@type tes3itemData?
+    reference = nil, ---@type tes3reference? do not keep this
 }
 
  ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
@@ -72,14 +73,11 @@ local function FindAnotherLook(target)
         --]]
     elseif target.objectType == tes3.objectType.weapon then
         -- Weapon Sheathing
-        local mesh = target.mesh
-        if mesh then
-            local sheathMesh = mesh:sub(1, -5) .. "_sh.nif"
-            if tes3.getFileExists("meshes\\" .. sheathMesh) then
-                logger:info("Find Weapon Sheathing mesh: %s", sheathMesh)
-                local data = { path = sheathMesh } ---@type WeaponSheathingData
-                return settings.anotherLookType.WeaponSheathing, data
-            end
+        local sheathMesh = require("InspectIt.mod").FindWeaponSheathingMesh(target.mesh)
+        if sheathMesh then
+            logger:info("Find Weapon Sheathing mesh: %s", sheathMesh)
+            local data = { path = sheathMesh } ---@type WeaponSheathingData
+            return settings.anotherLookType.WeaponSheathing, data
         end
     elseif target.objectType == tes3.objectType.book then
         -- Book or Scroll
@@ -165,9 +163,11 @@ end
 
 ---@return boolean
 local function EnterInspection()
+    -- TODO context to own params args
     if context.enable or not context.target then
         context.target = nil
         context.itemData = nil
+        context.reference = nil
         return false
     end
     if not CanInspection(context.target) then
@@ -175,6 +175,7 @@ local function EnterInspection()
         tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
         context.target = nil
         context.itemData = nil
+        context.reference = nil
         return false
     end
     -- when picking a item
@@ -184,11 +185,13 @@ local function EnterInspection()
         if tile then
             context.target = nil
             context.itemData = nil
+            context.reference = nil
             return false
         end
     end
 
     local name = context.target.name
+    -- resolve soul suffix or can get anywhere?
     local soul = FindSoulName(context.target, context.itemData)
     if soul then
         name = string.format("%s (%s)", name, soul)
@@ -208,15 +211,21 @@ local function EnterInspection()
         end
     end
 
+    local referenceNode = nil ---@type niAlphaProperty|niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niColorData|niDirectionalLight|niFogProperty|niGeometryData|niGravity|niKeyframeController|niKeyframeData|niKeyframeManager|niLookAtController|niMaterialProperty|niNode|niParticleBomb|niParticleCollider|niParticleColorModifier|niParticleGrowFade|niParticleRotation|niParticleSystemController|niParticles|niParticlesData|niPathController|niPixelData|niPlanarCollider|niPointLight|niRenderedTexture|niRenderer|niRotatingParticles|niRotatingParticlesData|niSkinData|niSkinInstance|niSkinPartition|niSortAdjustNode|niSourceTexture|niSphericalCollider|niSpotLight|niStencilProperty|niStringExtraData|niSwitchNode|niTES3ExtraData|niTextKeyExtraData|niTextureEffect|niTexturingProperty|niTriBasedGeometryData|niTriShape|niTriShapeData|niVertexColorProperty|niZBufferProperty?
+    if context.reference and context.target.objectType == tes3.objectType.npc and context.reference.sceneNode then
+        referenceNode = context.reference.sceneNode:clone()
+    end
+
     logger:info("Enter Inspection: %s (%s)", context.target.name, context.target.id)
 
     ---@type Activate.Params
-    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description, name = name }
+    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description, name = name, referenceNode = referenceNode }
     for _, controller in ipairs(controllers) do
         controller:Activate(params)
     end
     context.target = nil
     context.itemData = nil
+    context.reference = nil
     context.enable = true
     return true
 end
@@ -377,6 +386,7 @@ local function OnKeyDown(e)
                         if ref and ref.object then
                             context.target = ref.object
                             context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
+                            context.reference = ref
                         end
                     end
                 end
@@ -418,6 +428,7 @@ local function OnItemTileUpdated(e)
             if context.target then
                 context.target = nil
                 context.itemData = nil
+                context.reference = nil
             end
         end)
 end
@@ -431,6 +442,7 @@ local function OnMenuExit(e)
     end
     context.target = nil
     context.itemData = nil
+    context.reference = nil
 end
 
 ---@param e loadEventData
@@ -442,6 +454,7 @@ local function OnLoad(e)
     end
     context.target = nil
     context.itemData = nil
+    context.reference = nil
 end
 
 local function OnInitialized()
