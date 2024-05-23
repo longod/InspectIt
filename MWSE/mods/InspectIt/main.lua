@@ -101,11 +101,15 @@ local function FindReferenceNode(params)
 end
 
  ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
- ---@return boolean
+ ---@return boolean? can nil is implicitly NO.
 local function CanInspection(object)
     if not object then
-        return false
+        return nil
     end
+    if config.development.experimental then
+        return true
+    end
+
     local enabled = {
         [tes3.objectType.activator] = true,
         [tes3.objectType.alchemy] = true,
@@ -145,7 +149,7 @@ local function CanInspection(object)
         [tes3.objectType.weapon] = true,
     }
 
-    return enabled[object.objectType] == true
+    return enabled[object.objectType]
 end
 
 ---@param menuExit boolean
@@ -167,9 +171,12 @@ local function EnterInspection(params)
     if not params.object then
         return false
     end
-    if not CanInspection(params.object) then
+    local can = CanInspection(params.object)
+    if not can then
         logger:info("Unsupported Inspection: %s", params.object.name)
-        tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
+        if can == false then
+            tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
+        end
         return false
     end
     -- when picking a item
@@ -234,6 +241,36 @@ local function TestInput(e, key)
     return true
 end
 
+-- TODO I'm sure there's a smarter way, but I can't find a way.
+---@return boolean
+local function CanSelectByCursor()
+    -- Only when it is possible to activate outside objects with the cursor on the inventory screen.
+    -- Right-click menu, containers
+    local allowed = {
+        ["MenuContents"] = true, -- Container/NPC inventory
+        ["MenuInventory"] = true, -- Player inventory
+        ["MenuMulti"] = true, -- Status bars, current weapon/magic, active effects and minimap
+        ["MenuMagic"] = true, -- Spell/enchanted item selector
+        ["MenuMap"] = true, --
+        ["MenuStat"] = true, -- Player attributes, skills, factions etc.
+    }
+    -- focus may come to the inventory, but it is impossible.
+    local denied = {
+        "MenuBarter",
+    }
+    -- TODO registered id
+    local top = tes3ui.getMenuOnTop()
+    if top and top.visible and allowed[top.name] == true then
+        for _, name in ipairs(denied) do
+            if tes3ui.findMenu(name) ~= nil then
+                return false
+            end
+        end
+        return true
+    end
+    return false
+end
+
 --- listener
 ---@class Context
 local context = {
@@ -272,114 +309,48 @@ local function OnKeyDown(e)
             local reference = nil ---@type tes3reference?
             if not context.object then
                 if tes3.menuMode() then
-                    -- get cursor obj
-                    --[[
-                    -- TODO we need the inversed projection!
-                    ---@param v number[]
-                    ---@param m number[][]
-                    ---@return number[]
-                    local TransformRowVector = function(v, m)
-                        local ret = { 0, 0, 0, 0 }
-                        for c = 1, 4, 1 do
-                            for r = 1, 4, 1 do
-                                ret[c] = ret[c] + v[r] * m[r][c] -- v * m
-                            end
-                        end
-                        return ret
-                    end
-
-                    ---@param m number[][]
-                    ---@param v number[]
-                    ---@return number[]
-                    local TransformColumnVector = function(m, v)
-                        local ret = { 0, 0, 0, 0 }
-                        for c = 1, 4, 1 do
-                            for r = 1, 4, 1 do
-                                ret[c] = ret[c] + m[c][r] * v[r] -- m * v
-                            end
-                        end
-                        return ret
-                    end
-
-                    -- inversed projection matrix
-                    local cameraData = tes3.worldController.worldCamera.cameraData
-                    local fovX = mge.camera.fov or cameraData.fov
-                    local cot = 1.0 / math.tan(math.rad(fovX) * 0.5)
-                    local aspectRatio =  cameraData.viewportWidth / cameraData.viewportHeight -- 1/aspectRatio
-                    local near = cameraData.nearPlaneDistance
-                    local far = cameraData.farPlaneDistance
-                    local w = cot
-                    local h = cot * aspectRatio
-                    local a = far / (far - near)
-                    local b = -a * near
-                    -- row? column?
-
-                    local eyePos = tes3.getPlayerEyePosition()
-                    local eyeDir = tes3.getPlayerEyeVector()
-                    local distance = tes3.getPlayerActivationDistance()
-                    local cursor = tes3.getCursorPosition():copy()
-                    --local ndcPos = tes3vector4.new(cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2, 0, 1)
-                    --logger:debug("ndcPos: %s", ndcPos)
-                    local ndc = { cursor.x / cameraData.viewportWidth * 2, cursor.y / cameraData.viewportHeight * 2, 0, 1}
-                    ndc[0] = 0
-                    ndc[1] = 0
-                    -- 44 has no mul operator... so i calculate on my own
-                    -- inv proj LH
-                    local m = {
-                        { 1 / w, 0, 0, 0 },
-                        { 0,   1 / h, 0, 0 },
-                        { 0,   0,   0, 1 / b },
-                        { 0,   0,   1, -a / b },
-                    }
-
-                    local vr = { 0, 0, 0, 0 }
-                    local vc = { 0, 0, 0, 0 }
-
-                    local proj = {
-                        { w, 0, 0, 0 },
-                        { 0,   h, 0, 0 },
-                        { 0,   0,   a, 1 },
-                        { 0,   0,   b, 0 },
-                    }
-
-                    local p = TransformColumnVector(proj, {0,0,1,1})
-                    logger:debug("p1 : %s", table.concat(p, ", "))
-                    p = TransformRowVector({0,0,100,1}, proj) -- maybe this
-                    logger:debug("p2 : %s", table.concat(p, ", "))
-
-
-                    vr = TransformRowVector(ndc, m)
-
-                    -- affine
-                    local view = tes3vector3.new(vr[1] / vr[4], vr[2] / vr[4], vr[3] / vr[4])
-                    view = tes3vector3.new(vr[1] / vr[4], vr[3] / vr[4], vr[2] / vr[4]) -- to z-up
-                    --view = tes3vector3.new(vc[1] / vc[4], vc[2] / vc[4], vc[3] / vc[4])
-                    view:normalize()
-                    -- logger:debug("%s\n\t%s\n\t%s\n\t%s", table.concat(m[1], ", "), table.concat(m[2], ", "), table.concat(m[3], ", "), table.concat(m[4], ", "))
-
-                    logger:debug("vr : %s", table.concat(vr, ", "))
-                    logger:debug("vc : %s", table.concat(vc, ", "))
-                    logger:debug("viewDir: %s", view)
-                    -- witch the camera view matrix?
-                    local rotate = tes3.worldController.worldCamera.cameraData.camera.worldTransform.rotation:copy()
-                    rotate:lookAt(eyeDir, tes3vector3.new(0, 0, 1)) -- or quaternion without twist
-                    logger:debug("%s\n\t%s\n\t%s", rotate.x, rotate.y, rotate.z)
-                    rotate = rotate:transpose():copy()
-                    eyeDir = rotate:copy() * eyeDir:copy()
-                    eyeDir:normalize()
-                    logger:debug("eye dir: %s", eyeDir) -- ok transposed
-
-                    rotate:invert()
-                    local worldDir = rotate:copy() * view:copy()
-                    worldDir:normalize()
-                    logger:debug("worldDir: %s", worldDir)
-                    --]]
-                else
-                    if config.inspection.activatable then
-                        reference = tes3.getPlayerTarget()
-                        if reference and reference.object then
+                    -- menu cursor
+                    if config.inspection.cursorOver and CanSelectByCursor() then
+                        local cursor = tes3.getCursorPosition()
+                        local camera = tes3.worldController.worldCamera.cameraData.camera
+                        local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
+                        -- world root? ignore ui?
+                        local hit = tes3.rayTest({
+                            position = position,
+                            direction = direction,
+                            --ignore = { tes3.player },
+                            maxDistance = tes3.getPlayerActivationDistance(),
+                            -- accurateSkinned = true
+                        })
+                        -- hit non activatable objects...
+                        if hit and hit.reference then
+                            logger:debug("Hit: %s", hit.reference.id)
+                            reference = hit.reference
                             context.object = reference.object
                             context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
+                        end
+                    end
+                else
+                    -- in game
+                    if config.inspection.activatable then
+                        local ref = tes3.getPlayerTarget()
+                        if ref and ref.object then
+                            reference = ref
+                            context.object = reference.object
+                            context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
+                        elseif config.development.experimental then
+                            local hit = tes3.rayTest({
+                                position = tes3.getCameraPosition(), -- whitch better? player eye
+                                direction = tes3.getCameraVector(),
+                                ignore = { tes3.player }, -- for no offseted TPV
+                                maxDistance = tes3.getPlayerActivationDistance(),
+                            })
+                            if hit and hit.reference then
+                                logger:debug("Hit: %s", hit.reference.id)
+                                reference = hit.reference
+                                context.object = reference.object
+                                context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
+                            end
                         end
                     end
                 end

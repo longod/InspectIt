@@ -153,6 +153,14 @@ local function OnModConfigReady(e)
             }),
         })
         inspection:createOnOffButton({
+            label = settings.i18n("mcm.inspection.cursorOver.label"),
+            description = settings.i18n("mcm.inspection.cursorOver.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "cursorOver",
+                table = config.inspection,
+            }),
+        })
+        inspection:createOnOffButton({
             label = settings.i18n("mcm.inspection.activatable.label"),
             description = settings.i18n("mcm.inspection.activatable.description"),
             variable = mwse.mcm.createTableVariable({
@@ -211,6 +219,14 @@ local function OnModConfigReady(e)
         local dev = page:createCategory({
             label = settings.i18n("mcm.development.category.label"),
             description = settings.i18n("mcm.development.category.description"),
+        })
+        dev:createOnOffButton({
+            label = settings.i18n("mcm.development.experimental.label"),
+            description = settings.i18n("mcm.development.experimental.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "experimental",
+                table = config.development,
+            }),
         })
         dev:createDropdown({
             label = settings.i18n("mcm.development.logLevel.label"),

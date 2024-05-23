@@ -10,6 +10,7 @@ local defaults = {
     visibility = {},
 }
 
+-- TODO registered id
 local menus = {
     "MenuAlchemy", --
     "MenuAttributes", --

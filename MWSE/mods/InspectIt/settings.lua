@@ -76,8 +76,8 @@ this.defaultConfig = {
         inventory = true,
         barter = true,
         contents = true,
+        cursorOver = true,
         activatable = true,
-        -- cursorover = true,
         playSound = true,
     },
     display = {
@@ -85,9 +85,12 @@ this.defaultConfig = {
         bokeh = true,
         recalculateBounds = true,
         tooltipsComplete = true,
+        -- left part
     },
+    -- leftFilter = {}, ---@type { [string] : boolean }
     ---@class Config.Development
     development = {
+        experimental = false,
         logLevel = "INFO",
         logToConsole = false,
     }
