@@ -713,26 +713,57 @@ end
 ---@param self Inspector
 ---@param params Activate.Params
 function this.Activate(self, params)
-    local target = params.target
-    if not target then
+    local object = params.object
+    if not object then
         self.logger:error("No Object")
         return
     end
-    local mesh = target.mesh
-    if not tes3.getFileExists(string.format("Meshes\\%s", mesh)) then
-        self.logger:error("Not exist mesh: %s", mesh)
-        return
+
+    local model = nil
+    if params.referenceNode then
+        self.logger:debug("Use reference : %s", params.referenceNode)
+        model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        --DumpSceneGraph(model)
+        -- TODO reset animation or switching another
+
+        -- remove rotation, but including race scale
+        if object.race and object.race.height and object.race.weight then
+            -- or extract from rotation matrix
+            -- can be done by more than just NPCs. but negative scale is difficult.
+            -- row-major
+            -- local x = model.rotation.x:length()
+            -- local y = model.rotation.y:length()
+            -- local z = model.rotation.z:length()
+
+            local s = tes3vector2.new(object.race.weight.male, object.race.height.male)
+            if object.female then
+                s = tes3vector2.new(object.race.weight.female, object.race.height.female)
+            end
+            -- race sacale with identity
+            local raceScale = tes3matrix33.new(
+                s.x, 0, 0,
+                0, s.x, 0,
+                0, 0, s.y
+            )
+            model.rotation = raceScale:copy()
+        else
+            local identity = tes3matrix33.new()
+            identity:toIdentity()
+            model.rotation = identity:copy()
+        end
+    else
+        local mesh = object.mesh
+        if not tes3.getFileExists(string.format("Meshes\\%s", mesh)) then
+            self.logger:error("Not exist mesh: %s", mesh)
+            return
+        end
+
+        self.logger:debug("Load mesh : %s", mesh)
+        model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        -- reset rotation?
     end
 
-    self.logger:debug("Load mesh : %s", mesh)
-    local model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-
-    -- if params.referenceNode then
-    --     model = params.referenceNode
-    --     DumpSceneGraph(model)
-    -- end
-
-    local isCreature = target.objectType == tes3.objectType.creature
+    local isCreature = object.objectType == tes3.objectType.creature
     -- clean
     local bit = require("bit")
     foreach(model, function(node)
@@ -776,7 +807,7 @@ function this.Activate(self, params)
     local backface = false
     -- TODO need check same mesh as right? and fileter
     --[[
-    if target.isLeftPart then
+    if object.isLeftPart then
         -- item is Y-mirrored
         local mirror = tes3matrix33.new(
             1, 0, 0,
@@ -790,7 +821,7 @@ function this.Activate(self, params)
     --]]
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
-    -- DumpSceneGraph(model)
+    --DumpSceneGraph(model)
 
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
@@ -892,8 +923,8 @@ function this.Activate(self, params)
         end
         return ""
     end
-    self.logger:debug("objectType: %s", findKey(target.objectType))
-    local orientation = ori.GetOrientation(target, bounds)
+    self.logger:debug("objectType: %s", findKey(object.objectType))
+    local orientation = ori.GetOrientation(object, bounds)
     if orientation then
         local rot = tes3matrix33.new()
         rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
@@ -946,7 +977,7 @@ function this.Activate(self, params)
     --self.zoomMax = math.max(limitScale / self.baseScale, 1)
     -- self.zoomMax = 2
 
-    -- local ref = tes3.createReference({ object = target, position = tes3vector3.new(0,0,0), orientation = tes3vector3.new(0,0,0) })
+    -- local ref = tes3.createReference({ object = object, position = tes3vector3.new(0,0,0), orientation = tes3vector3.new(0,0,0) })
     -- local light = niPointLight.new()
     -- light:setAttenuationForRadius(256)
     -- light.diffuse = niColor.new(1,1,1)
@@ -984,8 +1015,8 @@ function this.Activate(self, params)
 
     -- It is better to play the sound in another controller, but it is easy to depend on the inspector's state, so run it in that.
     -- it seems it doesn't matter if the ID is not from tes3item.
-    self.objectId = target.id
-    self.objectType = target.objectType
+    self.objectId = object.id
+    self.objectType = object.objectType
     self:PlaySound(true)
 
 end

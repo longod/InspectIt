@@ -103,7 +103,7 @@ end
 function this.Activate(self, params)
     Destroy()
 
-    local name = params.name or params.target.name
+    local name = params.name or params.object.name
 
     local width, height = tes3ui.getViewportSize()
     local aspectRatio = width/height

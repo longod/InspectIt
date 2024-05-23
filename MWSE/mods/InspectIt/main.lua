@@ -12,15 +12,6 @@ local controllers = {
     require("InspectIt.controller.inspector").new(),
 }
 
---- listener
----@class Context
-local context = {
-    enable = false,
-    target = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
-    itemData = nil, ---@type tes3itemData?
-    reference = nil, ---@type tes3reference? do not keep this
-}
-
  ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@param itemData tes3itemData?
  ---@return string?
@@ -35,17 +26,17 @@ local context = {
     return nil
 end
 
- ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
+ ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
  ---@return BodyPartsData|WeaponSheathingData? data
-local function FindAnotherLook(target)
-    if target.objectType == tes3.objectType.armor or target.objectType == tes3.objectType.clothing then
+local function FindAnotherLook(object)
+    if object.objectType == tes3.objectType.armor or object.objectType == tes3.objectType.clothing then
         -- Body Parts
-        ---@cast target tes3armor|tes3clothing
+        ---@cast object tes3armor|tes3clothing
         --[[ -- TODO under researching
-        if tes3.player and tes3.player.object and target.parts then
+        if tes3.player and tes3.player.object and object.parts then
             local female = tes3.player.object.female -- depends on player
-            local parts = target.parts
+            local parts = object.parts
             local bodyParts = {} ---@type BodyParts[]
             for _, ware in ipairs(parts) do
                 local part = ware.male
@@ -61,8 +52,8 @@ local function FindAnotherLook(target)
             if count > 0 then
                 -- same mesh (shield)
                 -- or just shield, helms
-                if count == 1 and bodyParts[1].part.mesh == target.mesh then
-                    logger:debug("A bodypart is same mesh as object: %s", target.mesh)
+                if count == 1 and bodyParts[1].part.mesh == object.mesh then
+                    logger:debug("A bodypart is same mesh as object: %s", object.mesh)
                     return nil, nil
                 end
                 logger:debug("Find bodyparts %d", count)
@@ -71,38 +62,48 @@ local function FindAnotherLook(target)
             end
         end
         --]]
-    elseif target.objectType == tes3.objectType.weapon then
+    elseif object.objectType == tes3.objectType.weapon then
         -- Weapon Sheathing
-        local sheathMesh = require("InspectIt.mod").FindWeaponSheathingMesh(target.mesh)
+        local sheathMesh = require("InspectIt.mod").FindWeaponSheathingMesh(object.mesh)
         if sheathMesh then
             logger:info("Find Weapon Sheathing mesh: %s", sheathMesh)
             local data = { path = sheathMesh } ---@type WeaponSheathingData
             return settings.anotherLookType.WeaponSheathing, data
         end
-    elseif target.objectType == tes3.objectType.book then
+    elseif object.objectType == tes3.objectType.book then
         -- Book or Scroll
-        ---@cast target tes3book
+        ---@cast object tes3book
         -- Books with scripts are excluded because scripts are not executed when the book is opened.
-        if not target.script then
-            if target.text then
+        if not object.script then
+            if object.text then
                 -- exclude in barter? check owner?
                 logger:debug("Find book or scroll contents")
-                local data = { type = target.type, text = target.text }
+                local data = { type = object.type, text = object.text }
                 return settings.anotherLookType.Book, data
             end
         else
             -- TODO message box if need
-            logger:debug("%s, book or scroll has a sciprt: %s", target.name, tostring(target.script.id))
+            logger:debug("%s, book or scroll has a sciprt: %s", object.name, tostring(object.script.id))
         end
     end
     return nil, nil
 end
 
 
- ---@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+---@param params EnterParams
+---@return niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode?
+local function FindReferenceNode(params)
+    -- only npc
+    if params.reference and params.object.objectType == tes3.objectType.npc then
+        return params.reference.sceneNode
+    end
+    return nil
+end
+
+ ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
  ---@return boolean
-local function CanInspection(target)
-    if not target then
+local function CanInspection(object)
+    if not object then
         return false
     end
     local enabled = {
@@ -134,7 +135,7 @@ local function CanInspection(target)
         -- [tes3.objectType.mobilePlayer] = true,
         -- [tes3.objectType.mobileProjectile] = true,
         -- [tes3.objectType.mobileSpellProjectile] = true,
-        [tes3.objectType.npc] = false, -- TODO NPC needs to resolve body parts
+        [tes3.objectType.npc] = true,
         [tes3.objectType.probe] = true,
         -- [tes3.objectType.reference] = true,
         -- [tes3.objectType.region] = true,
@@ -144,38 +145,31 @@ local function CanInspection(target)
         [tes3.objectType.weapon] = true,
     }
 
-    return enabled[target.objectType] == true
+    return enabled[object.objectType] == true
 end
 
 ---@param menuExit boolean
----@return boolean
 local function LeaveInspection(menuExit)
-    if context.enable then
-        context.enable = false
-        logger:info("Leave Inspection")
-        for _, controller in ipairs(controllers) do
-            controller:Deactivate({ menuExit = menuExit })
-        end
-        return true
+    logger:info("Leave Inspection")
+    for _, controller in ipairs(controllers) do
+        controller:Deactivate({ menuExit = menuExit })
     end
-    return false
 end
 
+---@class EnterParams
+---@field object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+---@field itemData tes3itemData?
+---@field reference tes3reference?
+
+---@param params EnterParams
 ---@return boolean
-local function EnterInspection()
-    -- TODO context to own params args
-    if context.enable or not context.target then
-        context.target = nil
-        context.itemData = nil
-        context.reference = nil
+local function EnterInspection(params)
+    if not params.object then
         return false
     end
-    if not CanInspection(context.target) then
-        logger:info("Unsupported Inspection: %s", context.target.name)
+    if not CanInspection(params.object) then
+        logger:info("Unsupported Inspection: %s", params.object.name)
         tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
-        context.target = nil
-        context.itemData = nil
-        context.reference = nil
         return false
     end
     -- when picking a item
@@ -183,22 +177,19 @@ local function EnterInspection()
     if cursor then
         local tile = cursor:getPropertyObject("MenuInventory_Thing", "tes3inventoryTile")
         if tile then
-            context.target = nil
-            context.itemData = nil
-            context.reference = nil
             return false
         end
     end
 
-    local name = context.target.name
+    local name = params.object.name
     -- resolve soul suffix or can get anywhere?
-    local soul = FindSoulName(context.target, context.itemData)
+    local soul = FindSoulName(params.object, params.itemData)
     if soul then
         name = string.format("%s (%s)", name, soul)
     end
 
-    local another, data = FindAnotherLook(context.target)
-    local status, description = pcall(function() return require("InspectIt.mod").FindTooltipsComplete(context.target, context.itemData) end)
+    local another, data = FindAnotherLook(params.object)
+    local status, description = pcall(function() return require("InspectIt.mod").FindTooltipsComplete(params.object, params.itemData) end)
     if not status then
         logger:error("Failed to call Tooltips Complete: %s", tostring(description))
         description = nil
@@ -211,22 +202,16 @@ local function EnterInspection()
         end
     end
 
-    local referenceNode = nil ---@type niAlphaProperty|niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niColorData|niDirectionalLight|niFogProperty|niGeometryData|niGravity|niKeyframeController|niKeyframeData|niKeyframeManager|niLookAtController|niMaterialProperty|niNode|niParticleBomb|niParticleCollider|niParticleColorModifier|niParticleGrowFade|niParticleRotation|niParticleSystemController|niParticles|niParticlesData|niPathController|niPixelData|niPlanarCollider|niPointLight|niRenderedTexture|niRenderer|niRotatingParticles|niRotatingParticlesData|niSkinData|niSkinInstance|niSkinPartition|niSortAdjustNode|niSourceTexture|niSphericalCollider|niSpotLight|niStencilProperty|niStringExtraData|niSwitchNode|niTES3ExtraData|niTextKeyExtraData|niTextureEffect|niTexturingProperty|niTriBasedGeometryData|niTriShape|niTriShapeData|niVertexColorProperty|niZBufferProperty?
-    if context.reference and context.target.objectType == tes3.objectType.npc and context.reference.sceneNode then
-        referenceNode = context.reference.sceneNode:clone()
-    end
+    local referenceNode = FindReferenceNode(params)
 
-    logger:info("Enter Inspection: %s (%s)", context.target.name, context.target.id)
+
+    logger:info("Enter Inspection: %s (%s)", params.object.name, params.object.id)
 
     ---@type Activate.Params
-    local params = { target = context.target, offset = 20, another = { type = another, data = data }, description = description, name = name, referenceNode = referenceNode }
+    local args = { object = params.object, offset = 20, another = { type = another, data = data }, description = description, name = name, referenceNode = referenceNode }
     for _, controller in ipairs(controllers) do
-        controller:Activate(params)
+        controller:Activate(args)
     end
-    context.target = nil
-    context.itemData = nil
-    context.reference = nil
-    context.enable = true
     return true
 end
 
@@ -249,6 +234,14 @@ local function TestInput(e, key)
     return true
 end
 
+--- listener
+---@class Context
+local context = {
+    enable = false,
+    object = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+    itemData = nil, ---@type tes3itemData?
+}
+
 ---@param e keyDownEventData
 local function OnKeyDown(e)
     if tes3.onMainMenu() then
@@ -260,9 +253,9 @@ local function OnKeyDown(e)
             -- pause
         else
             if TestInput(e, config.input.inspect) then
-                if LeaveInspection(false) then
-                    tes3.worldController.menuClickSound:play()
-                end
+                context.enable = false
+                LeaveInspection(false)
+                tes3.worldController.menuClickSound:play()
             elseif TestInput(e, config.input.another) then
                 -- Sound is played even when another does not exist.
                 event.trigger(settings.switchAnotherLookEventName)
@@ -276,7 +269,8 @@ local function OnKeyDown(e)
         end
     else
         if TestInput(e, config.input.inspect) then
-            if not context.target then
+            local reference = nil ---@type tes3reference?
+            if not context.object then
                 if tes3.menuMode() then
                     -- get cursor obj
                     --[[
@@ -382,18 +376,21 @@ local function OnKeyDown(e)
                     --]]
                 else
                     if config.inspection.activatable then
-                        local ref = tes3.getPlayerTarget()
-                        if ref and ref.object then
-                            context.target = ref.object
-                            context.itemData = tes3.getAttachment(ref, "itemData") --[[@as tes3itemData?]]
-                            context.reference = ref
+                        reference = tes3.getPlayerTarget()
+                        if reference and reference.object then
+                            context.object = reference.object
+                            context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
                         end
                     end
                 end
             end
-            if EnterInspection() then
+            if EnterInspection({ object = context.object, itemData = context.itemData, reference = reference }) then
+                context.enable = true
                 tes3.worldController.menuClickSound:play()
             end
+            -- reset
+            context.object = nil
+            context.itemData = nil
         end
         if context.enable then
             --e.claim = true
@@ -419,16 +416,15 @@ local function OnItemTileUpdated(e)
     e.element:registerAfter(tes3.uiEvent.mouseOver,
         ---@param ev tes3uiEventData
         function(ev)
-            context.target = e.item
+            context.object = e.item
             context.itemData = e.itemData
         end)
     e.element:registerAfter(tes3.uiEvent.mouseLeave,
         ---@param ev tes3uiEventData
         function(ev)
-            if context.target then
-                context.target = nil
+            if context.object then
+                context.object = nil
                 context.itemData = nil
-                context.reference = nil
             end
         end)
 end
@@ -438,23 +434,25 @@ local function OnMenuExit(e)
     -- fail-safe
     if context.enable then
         logger:error("Inspection was not terminated")
+        context.enable = false
         LeaveInspection(true)
     end
-    context.target = nil
+    context.object = nil
     context.itemData = nil
-    context.reference = nil
 end
 
 ---@param e loadEventData
 local function OnLoad(e)
-    LeaveInspection(true)
+    if context.enable then
+        context.enable = false
+        LeaveInspection(true)
+    end
     -- or deallocate
     for _, controller in ipairs(controllers) do
         controller:Reset()
     end
-    context.target = nil
+    context.object = nil
     context.itemData = nil
-    context.reference = nil
 end
 
 local function OnInitialized()
@@ -466,7 +464,10 @@ local function OnInitialized()
     -- menu event
     event.register(settings.returnEventName,
     function(_)
-        LeaveInspection(false)
+        if context.enable then
+            context.enable = false
+            LeaveInspection(false)
+        end
     end)
 
     require("InspectIt.mod").RegisterRightClickMenuExit()

@@ -29,10 +29,10 @@ function this.FindWeaponSheathingMesh(mesh)
 end
 
 --- Tooltips Complete https://www.nexusmods.com/morrowind/mods/46842
----@param target tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
+---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
 ---@param itemData tes3itemData?
 ---@return string?
-function this.FindTooltipsComplete(target, itemData)
+function this.FindTooltipsComplete(object, itemData)
     local tooltipData = include("Tooltips Complete.data")
     if not tooltipData then
         return nil
@@ -64,18 +64,18 @@ function this.FindTooltipsComplete(target, itemData)
         -- return nil
     end
 
-    local file = target.sourceMod
+    local file = object.sourceMod
     if file and config.blocked[file:lower()] then
         return
-    elseif config.blocked[target.id:lower()] then
+    elseif config.blocked[object.id:lower()] then
         return
     end
 
     for _, data in ipairs(mcmMapping) do
-        local description = data.descriptionTable[target.id:lower()]
+        local description = data.descriptionTable[object.id:lower()]
         if config[data.mcm] and description then
             --soul gem item data
-            if (target.isSoulGem and itemData and itemData.soul) then
+            if (object.isSoulGem and itemData and itemData.soul) then
                 if config.blocked[itemData.soul.id:lower()] then
                     return description
                 end
