@@ -82,8 +82,8 @@ local function FindAnotherLook(object)
                 return settings.anotherLookType.Book, data
             end
         else
-            -- TODO message box if need
             logger:debug("%s, book or scroll has a sciprt: %s", object.name, tostring(object.script.id))
+            tes3.messageBox(settings.i18n("messageBox.scriptedBook.text", { name = object.name }))
         end
     end
     return nil, nil
@@ -94,6 +94,7 @@ end
 ---@return niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode?
 local function FindReferenceNode(params)
     -- only npc
+    -- allow creature?
     if params.reference and params.object.objectType == tes3.objectType.npc then
         return params.reference.sceneNode
     end
@@ -241,33 +242,36 @@ local function TestInput(e, key)
     return true
 end
 
+-- Only when it is possible to activate outside objects with the cursor on the inventory screen.
+-- Right-click menu, containers
+local allowedMenus = {
+    [tes3ui.registerID("MenuContents")] = true, -- Container/NPC inventory
+    [tes3ui.registerID("MenuInventory")] = true, -- Player inventory
+    [tes3ui.registerID("MenuMulti")] = true, -- Status bars, current weapon/magic, active effects and minimap
+    [tes3ui.registerID("MenuMagic")] = true, -- Spell/enchanted item selector
+    [tes3ui.registerID("MenuMap")] = true, --
+    [tes3ui.registerID("MenuStat")] = true, -- Player attributes, skills, factions etc.
+}
+-- focus may come to the inventory, but it is impossible.
+local deniedMenus = {
+    tes3ui.registerID("MenuBarter"),
+}
+
 -- TODO I'm sure there's a smarter way, but I can't find a way.
 ---@return boolean
 local function CanSelectByCursor()
-    -- Only when it is possible to activate outside objects with the cursor on the inventory screen.
-    -- Right-click menu, containers
-    local allowed = {
-        ["MenuContents"] = true, -- Container/NPC inventory
-        ["MenuInventory"] = true, -- Player inventory
-        ["MenuMulti"] = true, -- Status bars, current weapon/magic, active effects and minimap
-        ["MenuMagic"] = true, -- Spell/enchanted item selector
-        ["MenuMap"] = true, --
-        ["MenuStat"] = true, -- Player attributes, skills, factions etc.
-    }
-    -- focus may come to the inventory, but it is impossible.
-    local denied = {
-        "MenuBarter",
-    }
-    -- TODO registered id
     local top = tes3ui.getMenuOnTop()
-    if top and top.visible and allowed[top.name] == true then
-        for _, name in ipairs(denied) do
-            if tes3ui.findMenu(name) ~= nil then
+    if top and top.visible and allowedMenus[top.id] == true then
+        for _, id in ipairs(deniedMenus) do
+            if tes3ui.findMenu(id) ~= nil then
+                logger:debug("Cursor selection blocked.")
                 return false
             end
         end
+        logger:debug("Cursor selection allowed.")
         return true
     end
+    logger:debug("Cursor selection not available.")
     return false
 end
 
@@ -314,13 +318,11 @@ local function OnKeyDown(e)
                         local cursor = tes3.getCursorPosition()
                         local camera = tes3.worldController.worldCamera.cameraData.camera
                         local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
-                        -- world root? ignore ui?
                         local hit = tes3.rayTest({
                             position = position,
                             direction = direction,
                             --ignore = { tes3.player },
                             maxDistance = tes3.getPlayerActivationDistance(),
-                            -- accurateSkinned = true
                         })
                         -- hit non activatable objects...
                         if hit and hit.reference then
@@ -340,8 +342,8 @@ local function OnKeyDown(e)
                             context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
                         elseif config.development.experimental then
                             local hit = tes3.rayTest({
-                                position = tes3.getCameraPosition(), -- whitch better? player eye
-                                direction = tes3.getCameraVector(),
+                                position = tes3.getPlayerEyePosition(),
+                                direction = tes3.getPlayerEyeVector(),
                                 ignore = { tes3.player }, -- for no offseted TPV
                                 maxDistance = tes3.getPlayerActivationDistance(),
                             })

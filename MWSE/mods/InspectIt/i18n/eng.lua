@@ -1,5 +1,6 @@
 return {
     ["messageBox.unsupport.text"] = "[%{modName}] It is not yet supported for inspection.",
+    ["messageBox.scriptedBook.text"] = "'%{name}' cannot be opened inside because something will happen to it.",
     ["guide.rotate.text"] = "Rotate: Mouse left drag",
     ["guide.translate.text"] = "Move: Mouse middle drag",
     ["guide.zoom.text"] = "Zoom: Mouse wheel",
@@ -38,8 +39,8 @@ return {
     ["mcm.inspection.barter.description"] = "When you mouseover an item being bartered, you can inspect it.",
     ["mcm.inspection.contents.label"] = "Mouseover an Item in Container",
     ["mcm.inspection.contents.description"] = "When you mouseover an item in a container or pickpocketing, you can inspect it.",
-    ["mcm.inspection.cursorOver.label"] = "Mouseover an Activatable Object in Menu",
-    ["mcm.inspection.cursorOver.description"] = "When you mouseover an activatable object in menu, you can inspect it.",
+    ["mcm.inspection.cursorOver.label"] = "Mouseover an Activatable Object in the World",
+    ["mcm.inspection.cursorOver.description"] = "When you mouseover an activatable object in the world with the cursor, you can inspect it.",
     ["mcm.inspection.activatable.label"] = "Look at an Activatable Object",
     ["mcm.inspection.activatable.description"] = "When you are looking at an activatable object with the crosshair, you can inspect it.",
     ["mcm.inspection.playSound.label"] = "Play Sound",

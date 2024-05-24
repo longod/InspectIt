@@ -104,6 +104,9 @@ function this.Activate(self, params)
     Destroy()
 
     local name = params.name or params.object.name
+    if not name or name == "" then -- fallback
+           name = params.object.id
+    end
 
     local width, height = tes3ui.getViewportSize()
     local aspectRatio = width/height

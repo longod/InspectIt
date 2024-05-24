@@ -726,6 +726,19 @@ function this.Activate(self, params)
         --DumpSceneGraph(model)
         -- TODO reset animation or switching another
 
+        -- need retargeting?
+        --[[
+        foreach(model, function(node)
+            if node:isOfType(ni.type.NiTriShape) then
+                if node.skinInstance then
+                    for index, bone in ipairs(node.skinInstance.bones) do
+                        node.skinInstance.bones[index] = model:getObjectByName(bone.name)
+                    end
+                end
+            end
+        end)
+        --]]
+
         -- remove rotation, but including race scale
         if object.race and object.race.height and object.race.weight then
             -- or extract from rotation matrix
@@ -856,7 +869,7 @@ function this.Activate(self, params)
                 end
 
                 -- Some meshes seem to contain incorrect vertices.
-                -- Or calculations required to transform are still missing.
+                -- FIXME Or calculations required to transform are still missing.
                 -- In especially 'Tri chest' of 'The Imperfect'.
                 -- worldBounds always seems correctly, but it's a sphere, lazy bounds. These need to be combined well.
                 local center = node.worldBoundOrigin

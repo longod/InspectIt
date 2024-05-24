@@ -1,7 +1,7 @@
 local base = require("InspectIt.controller.base")
 
 ---@class Visibility : IController
----@field visibility {[string] : boolean}
+---@field visibility {[integer] : boolean}
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -10,51 +10,50 @@ local defaults = {
     visibility = {},
 }
 
--- TODO registered id
 local menus = {
-    "MenuAlchemy", --
-    "MenuAttributes", --
-    -- "MenuAttributesList", -- Enchanting/spellmaking effect attribute
-    "MenuBarter", --
-    -- "MenuBirthSign", --
-    -- "MenuBook", --
-    -- "MenuChooseClass", --
-    -- "MenuClassChoice", --
-    -- "MenuClassMessage", --
-    -- "MenuConsole", --
-    "MenuContents", -- Container/NPC inventory
-    -- "MenuDialog", --
-    "MenuEnchantment", --
-    -- "MenuInput", --
-    -- "MenuInputSave", --
-    "MenuInventory", -- Player inventory
-    "MenuInventorySelect", -- Item selector
-    "MenuJournal", --
-    "MenuMagic", -- Spell/enchanted item selector
-    -- "MenuMagicSelect", --
-    "MenuMap", --
-    -- "MenuMapNoteEdit", --
-    -- "MenuMessage", --
-    -- "MenuMulti", -- Status bars, current weapon/magic, active effects and minimap
-    -- "MenuName", --
-    -- "MenuQuick", -- Quick keys
-    "MenuRepair", --
-    -- "MenuRestWait", --
-    -- "MenuSave", --
-    -- "MenuScroll", --
-    "MenuServiceRepair", --
-    "MenuServiceSpells", --
-    -- "MenuServiceTraining", --
-    -- "MenuServiceTravel", --
-    -- "MenuSetValues", -- Enchanting/spellmaking effect values
-    "MenuSkills", --
-    -- "MenuSkillsList", -- Enchanting/spellmaking effect skill
-    "MenuSpecialization", --
-    "MenuSpellmaking", --
-    "MenuStat", -- Player attributes, skills, factions etc.
-    -- "MenuSwimFillBar", --
-    -- "MenuTimePass", --
-    -- "MenuTopic", --
+    tes3ui.registerID("MenuAlchemy"), --
+    -- tes3ui.registerID("MenuAttributes"), --
+    -- tes3ui.registerID("MenuAttributesList"), -- Enchanting/spellmaking effect attribute
+    tes3ui.registerID("MenuBarter"), --
+    -- tes3ui.registerID("MenuBirthSign"), --
+    -- tes3ui.registerID("MenuBook"), --
+    -- tes3ui.registerID("MenuChooseClass"), --
+    -- tes3ui.registerID("MenuClassChoice"), --
+    -- tes3ui.registerID("MenuClassMessage"), --
+    -- tes3ui.registerID("MenuConsole"), --
+    tes3ui.registerID("MenuContents"), -- Container/NPC inventory
+    -- tes3ui.registerID("MenuDialog"), --
+    tes3ui.registerID("MenuEnchantment"), --
+    -- tes3ui.registerID("MenuInput"), --
+    -- tes3ui.registerID("MenuInputSave"), --
+    tes3ui.registerID("MenuInventory"), -- Player inventory
+    tes3ui.registerID("MenuInventorySelect"), -- Item selector
+    -- tes3ui.registerID("MenuJournal"), --
+    tes3ui.registerID("MenuMagic"), -- Spell/enchanted item selector
+    -- tes3ui.registerID("MenuMagicSelect"), --
+    tes3ui.registerID("MenuMap"), --
+    -- tes3ui.registerID("MenuMapNoteEdit"), --
+    -- tes3ui.registerID("MenuMessage"), --
+    -- tes3ui.registerID("MenuMulti"), -- Status bars, current weapon/magic, active effects and minimap
+    -- tes3ui.registerID("MenuName"), --
+    -- tes3ui.registerID("MenuQuick"), -- Quick keys
+    tes3ui.registerID("MenuRepair"), --
+    -- tes3ui.registerID("MenuRestWait"), --
+    -- tes3ui.registerID("MenuSave"), --
+    -- tes3ui.registerID("MenuScroll"), --
+    tes3ui.registerID("MenuServiceRepair"), --
+    tes3ui.registerID("MenuServiceSpells"), --
+    -- tes3ui.registerID("MenuServiceTraining"), --
+    -- tes3ui.registerID("MenuServiceTravel"), --
+    -- tes3ui.registerID("MenuSetValues"), -- Enchanting/spellmaking effect values
+    -- tes3ui.registerID("MenuSkills"), --
+    -- tes3ui.registerID("MenuSkillsList"), -- Enchanting/spellmaking effect skill
+    -- tes3ui.registerID("MenuSpecialization"), --
+    tes3ui.registerID("MenuSpellmaking"), --
+    tes3ui.registerID("MenuStat"), -- Player attributes, skills, factions etc.
+    -- tes3ui.registerID("MenuSwimFillBar"), --
+    -- tes3ui.registerID("MenuTimePass"), --
+    -- tes3ui.registerID("MenuTopic"), --
 }
 
 ---@return Visibility
@@ -73,7 +72,7 @@ function this.Activate(self, params)
     for _, menu in ipairs(menus) do
         local element = tes3ui.findMenu(menu)
         if element and element.visible == true then
-            self.logger:debug("[Activate] Menu %s visibility %s to false", menu, tostring(element.visible))
+            self.logger:debug("[Activate] Menu %s visibility %s to false", element.name, tostring(element.visible))
             element.visible = false
             self.visibility[menu] = true
         else
@@ -91,7 +90,7 @@ function this.Deactivate(self, params)
             if value then
                 local element = tes3ui.findMenu(menu)
                 if element then
-                    self.logger:debug("[Deactivate] Menu %s visibility %s to true", menu, tostring(element.visible))
+                    self.logger:debug("[Deactivate] Menu %s visibility %s to true", element.name, tostring(element.visible))
                     element.visible = true
                 end
             end
