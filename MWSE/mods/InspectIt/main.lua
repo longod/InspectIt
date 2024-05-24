@@ -83,7 +83,7 @@ local function FindAnotherLook(object)
             end
         else
             logger:debug("%s, book or scroll has a sciprt: %s", object.name, tostring(object.script.id))
-            tes3.messageBox(settings.i18n("messageBox.scriptedBook.text", { name = object.name }))
+            tes3.messageBox(settings.i18n("messageBox.bookRequirement.text", { name = object.name }))
         end
     end
     return nil, nil
@@ -176,7 +176,7 @@ local function EnterInspection(params)
     if not can then
         logger:info("Unsupported Inspection: %s", params.object.name)
         if can == false then
-            tes3.messageBox(settings.i18n("messageBox.unsupport.text", { modName = settings.modName }))
+            tes3.messageBox(settings.i18n("messageBox.unsupport.text"))
         end
         return false
     end
@@ -211,7 +211,6 @@ local function EnterInspection(params)
     end
 
     local referenceNode = FindReferenceNode(params)
-
 
     logger:info("Enter Inspection: %s (%s)", params.object.name, params.object.id)
 
@@ -281,7 +280,14 @@ local context = {
     enable = false,
     object = nil, ---@type tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
     itemData = nil, ---@type tes3itemData?
+    isPlayer = false,
 }
+
+local function ResetContext()
+    context.object = nil
+    context.itemData = nil
+    context.isPlayer = false
+end
 
 ---@param e keyDownEventData
 local function OnKeyDown(e)
@@ -313,28 +319,42 @@ local function OnKeyDown(e)
             local reference = nil ---@type tes3reference?
             if not context.object then
                 if tes3.menuMode() then
-                    -- menu cursor
                     if config.inspection.cursorOver and CanSelectByCursor() then
-                        local cursor = tes3.getCursorPosition()
-                        local camera = tes3.worldController.worldCamera.cameraData.camera
-                        local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
-                        local hit = tes3.rayTest({
-                            position = position,
-                            direction = direction,
-                            --ignore = { tes3.player },
-                            maxDistance = tes3.getPlayerActivationDistance(),
-                        })
-                        -- hit non activatable objects...
-                        if hit and hit.reference then
-                            logger:debug("Hit: %s", hit.reference.id)
-                            reference = hit.reference
-                            context.object = reference.object
-                            context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
+                        if context.isPlayer then
+                            -- When FPV, it seems there is no full body reference.
+                            if tes3.is3rdPerson() then
+                                reference = tes3.player
+                                context.object = reference.object
+                            elseif config.development.experimental then
+                                reference = tes3.player1stPerson
+                                context.object = reference.object
+                            else
+                                tes3.messageBox(settings.i18n("messageBox.playerRequirement.text"))
+                            end
+                            context.itemData = nil
+                        else
+                            -- cursor to world
+                            local cursor = tes3.getCursorPosition()
+                            local camera = tes3.worldController.worldCamera.cameraData.camera
+                            local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
+                            local hit = tes3.rayTest({
+                                position = position,
+                                direction = direction,
+                                --ignore = { tes3.player },
+                                maxDistance = tes3.getPlayerActivationDistance(),
+                            })
+                            -- hit non activatable objects...
+                            if hit and hit.reference then
+                                logger:debug("Hit: %s", hit.reference.id)
+                                reference = hit.reference
+                                context.object = reference.object
+                                context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
+                            end
                         end
                     end
                 else
-                    -- in game
                     if config.inspection.activatable then
+                        -- in game
                         local ref = tes3.getPlayerTarget()
                         if ref and ref.object then
                             reference = ref
@@ -361,9 +381,7 @@ local function OnKeyDown(e)
                 context.enable = true
                 tes3.worldController.menuClickSound:play()
             end
-            -- reset
-            context.object = nil
-            context.itemData = nil
+            ResetContext()
         end
         if context.enable then
             --e.claim = true
@@ -389,16 +407,14 @@ local function OnItemTileUpdated(e)
     e.element:registerAfter(tes3.uiEvent.mouseOver,
         ---@param ev tes3uiEventData
         function(ev)
+            ResetContext()
             context.object = e.item
             context.itemData = e.itemData
         end)
     e.element:registerAfter(tes3.uiEvent.mouseLeave,
         ---@param ev tes3uiEventData
         function(ev)
-            if context.object then
-                context.object = nil
-                context.itemData = nil
-            end
+            ResetContext()
         end)
 end
 
@@ -410,8 +426,7 @@ local function OnMenuExit(e)
         context.enable = false
         LeaveInspection(true)
     end
-    context.object = nil
-    context.itemData = nil
+    ResetContext()
 end
 
 ---@param e loadEventData
@@ -424,8 +439,28 @@ local function OnLoad(e)
     for _, controller in ipairs(controllers) do
         controller:Reset()
     end
-    context.object = nil
-    context.itemData = nil
+    ResetContext()
+end
+
+--- @param e uiActivatedEventData
+local function OnUIActivated(e)
+    if not e.newlyCreated then
+		return
+	end
+    local image = e.element:findChild("MenuInventory_CharacterImage")
+    if image then
+        image:registerAfter(tes3.uiEvent.mouseOver,
+            ---@param ev tes3uiEventData
+            function(ev)
+                ResetContext()
+                context.isPlayer = true
+            end)
+        image:registerAfter(tes3.uiEvent.mouseLeave,
+            ---@param ev tes3uiEventData
+            function(ev)
+                ResetContext()
+            end)
+    end
 end
 
 local function OnInitialized()
@@ -433,6 +468,7 @@ local function OnInitialized()
     event.register(tes3.event.keyDown, OnKeyDown, { priority = 0 })
     event.register(tes3.event.menuExit, OnMenuExit)
     event.register(tes3.event.load, OnLoad)
+    event.register(tes3.event.uiActivated, OnUIActivated)
 
     -- menu event
     event.register(settings.returnEventName,

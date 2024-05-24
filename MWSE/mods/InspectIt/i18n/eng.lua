@@ -1,6 +1,7 @@
 return {
-    ["messageBox.unsupport.text"] = "[%{modName}] It is not yet supported for inspection.",
-    ["messageBox.scriptedBook.text"] = "'%{name}' cannot be opened inside because something will happen to it.",
+    ["messageBox.unsupport.text"] = "It is not yet supported for inspection.",
+    ["messageBox.playerRequirement.text"] = "When inspecting the player character, use third person view.",
+    ["messageBox.bookRequirement.text"] = "'%{name}' cannot be opened inside because something will happen to it.",
     ["guide.rotate.text"] = "Rotate: Mouse left drag",
     ["guide.translate.text"] = "Move: Mouse middle drag",
     ["guide.zoom.text"] = "Zoom: Mouse wheel",
