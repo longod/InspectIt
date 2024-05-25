@@ -7,10 +7,19 @@ local function OnModConfigReady(e)
     template:register()
 
     local page = template:createSideBarPage({
-        label = settings.modName,
+        label = settings.i18n("mcm.page.label")
     })
-    page.sidebar:createInfo({
+    local info = page.sidebar:createInfo({
+        label = string.format("%s %s",settings.modName, settings.version),
         text = settings.i18n("mcm.sidebar.info")
+    })
+    page.sidebar:createHyperlink({
+        text = settings.metadata.package.homepage,
+        url = settings.metadata.package.homepage,
+    })
+    page.sidebar:createHyperlink({
+        text = settings.metadata.package.repository,
+        url = settings.metadata.package.repository,
     })
 
     do
@@ -199,6 +208,14 @@ local function OnModConfigReady(e)
             }),
         })
         display:createOnOffButton({
+            label = settings.i18n("mcm.display.leftPart.label"),
+            description = settings.i18n("mcm.display.leftPart.description", {name = settings.i18n("mcm.leftPartFilter.page.label")}),
+            variable = mwse.mcm.createTableVariable({
+                id = "leftPart",
+                table = config.display,
+            }),
+        })
+        display:createOnOffButton({
             label = settings.i18n("mcm.display.recalculateBounds.label"),
             description = settings.i18n("mcm.display.recalculateBounds.description"),
             variable = mwse.mcm.createTableVariable({
@@ -261,5 +278,51 @@ local function OnModConfigReady(e)
             end
         })
     end
+
+    template:createExclusionsPage({
+        label = settings.i18n("mcm.leftPartFilter.page.label"),
+        description = settings.i18n("mcm.leftPartFilter.page.description"),
+        leftListLabel = settings.i18n("mcm.leftPartFilter.page.normal"),
+        rightListLabel = settings.i18n("mcm.leftPartFilter.page.mirror"),
+        showHeader = true,
+        variable = mwse.mcm.createTableVariable({
+            id = "leftPartFilter",
+            table = config,
+        }),
+        filters = {
+            {
+                label = settings.i18n("mcm.leftPartFilter.armor.label"),
+                type = "Object",
+                objectType = tes3.objectType.armor,
+                objectFilters = {
+                    isLeftPart = true,
+                },
+            },
+            {
+                label = settings.i18n("mcm.leftPartFilter.clothing.label"),
+                type = "Object",
+                objectType = tes3.objectType.clothing,
+                objectFilters = {
+                    isLeftPart = true,
+                },
+            },
+            {
+                label = settings.i18n("mcm.leftPartFilter.sameArmor.label"),
+                callback = function()
+                    return require("InspectIt.component.mesh").GetArmorSameMeshAsRightPart()
+                end
+            },
+            {
+                label = settings.i18n("mcm.leftPartFilter.sameClothing.label"),
+                callback = function()
+                    return require("InspectIt.component.mesh").GetClothingSameMeshAsRightPart()
+                end
+            },
+            {
+                label = settings.i18n("mcm.leftPartFilter.plugin.label"),
+                type = "Plugin",
+            },
+        }
+    })
 end
 event.register(tes3.event.modConfigReady, OnModConfigReady)

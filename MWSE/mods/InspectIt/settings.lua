@@ -9,6 +9,7 @@ this.returnButtonName = "InspectIt:ReturnButton"
 this.returnEventName = "InspectIt:ReturnEvent"
 this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
 this.switchLightingEventName = "InspectIt:SwitchLightingEvent"
+this.toggleMirroringEventName = "InspectIt:ToggleMirroringEvent"
 this.resetPoseEventName = "InspectIt:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectIt")
 
@@ -83,11 +84,11 @@ this.defaultConfig = {
     display = {
         instruction = true,
         bokeh = true,
+        leftPart = true,
         recalculateBounds = true,
         tooltipsComplete = true,
-        -- left part
     },
-    -- leftFilter = {}, ---@type { [string] : boolean }
+    leftPartFilter = {}, ---@type { [string] : boolean }
     ---@class Config.Development
     development = {
         experimental = false,

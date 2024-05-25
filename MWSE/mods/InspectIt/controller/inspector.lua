@@ -1,7 +1,8 @@
 local base = require("InspectIt.controller.base")
 local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
-local ori = require("InspectIt.orientation")
+local ori = require("InspectIt.component.orientation")
+local mesh = require("InspectIt.component.mesh")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
@@ -20,6 +21,7 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 ---@field activateCallback fun(e : activateEventData)?
 ---@field switchAnotherLookCallback fun()?
 ---@field switchLightingCallback fun()?
+---@field toggleMirroringCallback fun()?
 ---@field resetPosecCallback fun()?
 ---@field angularVelocity tes3vector3 -- vec2 doesnt have dot
 ---@field velocity tes3vector3 -- vec2 doesnt have dot
@@ -617,6 +619,47 @@ function this.SwitchLighting(self)
     end
 end
 
+
+function this.ToggleMirroring(self)
+    local model = self.original -- FIXME for another
+    if self.objectId and model then
+        -- or has mirrered flag? or object
+        if mesh.CanMirrorById(self.objectId) then
+            self.logger:debug("Mirror the left part")
+            -- item is Y-mirrored
+            local mirror = tes3matrix33.new(
+                1, 0, 0,
+                0, -1, 0,
+                0, 0, 1
+            )
+            model.rotation = mirror:copy() -- reset, didnt has original rotation
+        else
+            local identity = tes3matrix33.new()
+            identity:toIdentity()
+            model.rotation = identity:copy()
+        end
+
+        -- TODO update bounds and recentering
+        -- zoom fitting no adjust. center point changes, but the size should remain the same.
+        --[[ -- FIXME scaled bounds...
+        local bounds = mesh.CalculateBounds(model)
+        self.originalBounds = bounds
+        local offset = (bounds.max + bounds.min) * -0.5
+        self.logger:debug("bounds max: %s", bounds.max)
+        self.logger:debug("bounds min: %s", bounds.min)
+        self.logger:debug("bounds offset: %s", offset)
+        self.pivot.translation = offset
+        -- ]]
+
+        -- always enabled no cull
+        local props = self.pivot:getProperty(ni.propertyType.stencil)
+        if props then
+            props.drawMode = 3 -- DRAW_BOTH
+        end
+        self.pivot:update()
+    end
+end
+
 function this.ResetPose(self)
     self.logger:debug("Reset pose")
     if self.root then
@@ -726,7 +769,7 @@ function this.Activate(self, params)
         --DumpSceneGraph(model)
         -- TODO reset animation or switching another
 
-        -- need retargeting?
+        -- test: need retargeting?
         --[[
         foreach(model, function(node)
             if node:isOfType(ni.type.NiTriShape) then
@@ -738,6 +781,26 @@ function this.Activate(self, params)
             end
         end)
         --]]
+
+        -- test: copy base idle pose, but left parts resetted. skin is wired?
+        --[[
+        local mesh = object.mesh
+        self.logger:debug("Load mesh : %s", mesh)
+        local skeleton = tes3.loadMesh(mesh, true):clone()
+        skeleton:update()
+        skeleton = skeleton:getObjectByName("Bip01")
+        foreach(skeleton, function(node)
+            if node:isOfType(ni.type.NiNode) then
+                local dest = model:getObjectByName(node.name)
+                if dest then
+                    dest.translation = node.translation:copy()
+                    dest.rotation = node.rotation:copy()
+                    dest.scale = node.scale
+                end
+            end
+        end)
+        --]]
+
 
         -- remove rotation, but including race scale
         if object.race and object.race.height and object.race.weight then
@@ -764,15 +827,15 @@ function this.Activate(self, params)
             identity:toIdentity()
             model.rotation = identity:copy()
         end
+
     else
-        local mesh = object.mesh
-        if not tes3.getFileExists(string.format("Meshes\\%s", mesh)) then
-            self.logger:error("Not exist mesh: %s", mesh)
+        if not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
+            self.logger:error("Not exist mesh: %s", object.mesh)
             return
         end
 
-        self.logger:debug("Load mesh : %s", mesh)
-        model = tes3.loadMesh(mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        self.logger:debug("Load mesh : %s", object.mesh)
+        model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
         -- reset rotation?
     end
 
@@ -817,10 +880,11 @@ function this.Activate(self, params)
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
 
-    local backface = false
-    -- TODO need check same mesh as right? and fileter
-    --[[
-    if object.isLeftPart then
+    -- When there are separate polygons on both sides, such as papers,
+    -- without backface culling, the back side seems to appear in the foreground depending on both position.
+    local backface = object.objectType ~= tes3.objectType.book
+    if mesh.CanMirror(object) then
+        self.logger:debug("Mirror the left part")
         -- item is Y-mirrored
         local mirror = tes3matrix33.new(
             1, 0, 0,
@@ -829,75 +893,13 @@ function this.Activate(self, params)
         )
         local rotation = model.rotation:copy()
         model.rotation = mirror:copy() * rotation:copy()
-        backface = true
+        backface = true -- must
     end
-    --]]
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
     --DumpSceneGraph(model)
 
-    local bounds = model:createBoundingBox():copy()
-    if config.display.recalculateBounds then
-        -- vertex only bounds
-        -- more tight bounds, but possible too heavy.
-        self.logger:debug("prev bounds max: %s", bounds.max)
-        self.logger:debug("prev bounds min: %s", bounds.min)
-        bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
-        bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
-        foreach(model, function(node)
-            if node:isOfType(ni.type.NiTriShape) then
-                ---@cast node niTriShape
-                local data = node.data
-                local transform = node.worldTransform:copy()
-                if node.skinInstance and node.skinInstance.root then
-                    -- skinning seems still skeleton relative or the original world coords from the root to this node
-                    -- correct mul order? or just copy.
-                    transform = node.skinInstance.root.worldTransform:copy() * transform:copy()
-                end
-
-                -- object world bounds
-                local max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
-                local min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
-                for _, vert in ipairs(data.vertices) do
-                    local v = transform * vert:copy()
-                    max.x = math.max(max.x, v.x);
-                    max.y = math.max(max.y, v.y);
-                    max.z = math.max(max.z, v.z);
-                    min.x = math.min(min.x, v.x);
-                    min.y = math.min(min.y, v.y);
-                    min.z = math.min(min.z, v.z);
-                end
-
-                -- Some meshes seem to contain incorrect vertices.
-                -- FIXME Or calculations required to transform are still missing.
-                -- In especially 'Tri chest' of 'The Imperfect'.
-                -- worldBounds always seems correctly, but it's a sphere, lazy bounds. These need to be combined well.
-                local center = node.worldBoundOrigin
-                local radius = node.worldBoundRadius
-                local threshold = radius * 2 -- FIXME In theory, it should fit within the radius, but often it does not. Allow for more margin.
-                -- TODO distance squared
-                -- boundingbox is some distance away from bounding sphere.
-                if center:distance(max) > threshold or center:distance(min) > threshold then
-                    self.logger:debug("use bounding sphere: %s", tostring(node.name))
-                    self.logger:debug("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
-                    self.logger:debug("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())
-                    local smax = center:copy() + radius
-                    local smin = center:copy() - radius
-                    max = smax
-                    min = smin
-                end
-
-                -- merge all
-                bounds.max.x = math.max(bounds.max.x, max.x);
-                bounds.max.y = math.max(bounds.max.y, max.y);
-                bounds.max.z = math.max(bounds.max.z, max.z);
-                bounds.min.x = math.min(bounds.min.x, min.x);
-                bounds.min.y = math.min(bounds.min.y, min.y);
-                bounds.min.z = math.min(bounds.min.z, min.z);
-
-            end
-        end)
-    end
+    local bounds = mesh.CalculateBounds(model)
 
     self.anotherData = params.another
 
@@ -913,17 +915,10 @@ function this.Activate(self, params)
     pivot.translation = offset
     pivot:attachChild(model)
 
-    -- When there are separate polygons on both sides, such as papers,
-    -- without backface culling, the back side seems to appear in the foreground depending on both position.
-    -- Here, the thickness is used to determine the paper, just as it is used to determine the paper.
     if not backface then
-        local size = bounds.max - bounds.min
-        local thickness = math.min(size.x, size.y, size.z)
-        if thickness < 3 then
-            local props = pivot:getProperty(ni.propertyType.stencil)
-            if props then
-                props.drawMode = 0 -- DRAW_CCW_OR_BOTH
-            end
+        local props = pivot:getProperty(ni.propertyType.stencil)
+        if props then
+            props.drawMode = 0-- DRAW_CCW_OR_BOTH
         end
     end
 
@@ -1017,6 +1012,9 @@ function this.Activate(self, params)
     self.switchLightingCallback = function()
         self:SwitchLighting()
     end
+    self.toggleMirroringCallback = function()
+        self:ToggleMirroring()
+    end
     self.resetPosecCallback = function()
         self:ResetPose()
     end
@@ -1024,6 +1022,7 @@ function this.Activate(self, params)
     event.register(tes3.event.activate, self.activateCallback)
     event.register(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
     event.register(settings.switchLightingEventName, self.switchLightingCallback)
+    event.register(settings.toggleMirroringEventName, self.toggleMirroringCallback)
     event.register(settings.resetPoseEventName, self.resetPosecCallback)
 
     -- It is better to play the sound in another controller, but it is easy to depend on the inspector's state, so run it in that.
@@ -1048,11 +1047,13 @@ function this.Deactivate(self, params)
         event.unregister(tes3.event.activate, self.activateCallback)
         event.unregister(settings.switchAnotherLookEventName, self.switchAnotherLookCallback)
         event.unregister(settings.switchLightingEventName, self.switchLightingCallback)
+        event.unregister(settings.toggleMirroringEventName, self.toggleMirroringCallback)
         event.unregister(settings.resetPoseEventName, self.resetPosecCallback)
         self.enterFrameCallback = nil
         self.activateCallback = nil
         self.switchAnotherLookCallback = nil
         self.switchLightingCallback = nil
+        self.toggleMirroringCallback = nil
         self.resetPosecCallback = nil
 
         if not params.menuExit then
