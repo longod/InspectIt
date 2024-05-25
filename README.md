@@ -19,7 +19,7 @@ This mod allow you to inspect a variety of objects.
 
 ## Compatibility
 - [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458) by Merlord
-  - Right-click to exit the inspection.
+  - Right-click to exit inspection.
 - [Tooltips Complete](https://www.nexusmods.com/morrowind/mods/46842) by Anumaril21
   - If those are descriptions by that mod, it can be displayed during the inspection.
 - [Weapon Sheathing](https://www.nexusmods.com/morrowind/mods/46069) by TES3 Community

@@ -20,6 +20,13 @@ local function foreach(node, func)
     end
 end
 
+---@param a tes3vector3
+---@param b tes3vector3
+local function DistanceSquared(a, b)
+    local c = a - b
+    return c:dot(c)
+end
+
 ---@param objectType tes3.objectType
 ---@return string[] ids
 local function CollectSameMeshAsRightPart(objectType)
@@ -154,9 +161,9 @@ function this.CalculateBounds(model)
                 local center = node.worldBoundOrigin
                 local radius = node.worldBoundRadius
                 local threshold = radius * 2 -- FIXME In theory, it should fit within the radius, but often it does not. Allow for more margin.
-                -- TODO distance squared
+                threshold = threshold * threshold
                 -- boundingbox is some distance away from bounding sphere.
-                if center:distance(max) > threshold or center:distance(min) > threshold then
+                if DistanceSquared(center, max) > threshold or DistanceSquared(center, min) > threshold then
                     logger:debug("use bounding sphere: %s", tostring(node.name))
                     logger:debug("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
                     logger:debug("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())

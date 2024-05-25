@@ -209,7 +209,7 @@ local function OnModConfigReady(e)
         })
         display:createOnOffButton({
             label = settings.i18n("mcm.display.leftPart.label"),
-            description = settings.i18n("mcm.display.leftPart.description", {name = settings.i18n("mcm.leftPartFilter.page.label")}),
+            description = settings.i18n("mcm.display.leftPart.description"),
             variable = mwse.mcm.createTableVariable({
                 id = "leftPart",
                 table = config.display,

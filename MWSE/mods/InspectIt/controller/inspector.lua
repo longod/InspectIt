@@ -39,8 +39,8 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 ---@field anotherLook boolean
 ---@field lighting LightingType
 ---@field distance tes3vector3 half width, distance, half height
----@field objectId string? object id
----@field objectType tes3.objectType?
+---@field object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+---@field mirrored boolean
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -65,8 +65,7 @@ local defaults = {
     anotherLook = false,
     lighting = settings.lightingType.Default,
     distance = tes3vector3.new(20, 20, 20),
-    objectId = nil,
-    objectType = nil,
+    mirrored = false,
 }
 
 ---@return Inspector
@@ -219,7 +218,7 @@ function this.PlaySound(self, pickup)
     if config.inspection.playSound then
         -- TODO creature -> sound gen
         -- door, others
-        tes3.playItemPickupSound({ item = self.objectId, pickup = pickup })
+        tes3.playItemPickupSound({ item = self.object.id, pickup = pickup })
     end
 end
 
@@ -622,9 +621,9 @@ end
 
 function this.ToggleMirroring(self)
     local model = self.original -- FIXME for another
-    if self.objectId and model then
-        -- or has mirrered flag? or object
-        if mesh.CanMirrorById(self.objectId) then
+    if self.object and model then
+        local after = false
+        if mesh.CanMirror(self.object) then
             self.logger:debug("Mirror the left part")
             -- item is Y-mirrored
             local mirror = tes3matrix33.new(
@@ -632,30 +631,32 @@ function this.ToggleMirroring(self)
                 0, -1, 0,
                 0, 0, 1
             )
-            model.rotation = mirror:copy() -- reset, didnt has original rotation
+            model.rotation = mirror:copy() -- overewrite, didnt has original rotation
+            after = true
         else
+            self.logger:debug("Normal the left part")
             local identity = tes3matrix33.new()
             identity:toIdentity()
             model.rotation = identity:copy()
+            after = false
         end
 
-        -- TODO update bounds and recentering
-        -- zoom fitting no adjust. center point changes, but the size should remain the same.
-        --[[ -- FIXME scaled bounds...
-        local bounds = mesh.CalculateBounds(model)
-        self.originalBounds = bounds
-        local offset = (bounds.max + bounds.min) * -0.5
-        self.logger:debug("bounds max: %s", bounds.max)
-        self.logger:debug("bounds min: %s", bounds.min)
-        self.logger:debug("bounds offset: %s", offset)
-        self.pivot.translation = offset
-        -- ]]
-
-        -- always enabled no cull
-        local props = self.pivot:getProperty(ni.propertyType.stencil)
-        if props then
-            props.drawMode = 3 -- DRAW_BOTH
+        -- There is a situation where changing the sourceMod from config and changing the ID with the button results in the same state.
+        if self.mirrored ~= after then
+            -- adjust centering offset, simply flip Y
+            -- no need zoom re-fitting. center point changes, but the size should remain the same.
+            self.pivot.translation = tes3vector3.new(self.pivot.translation.x, -self.pivot.translation.y,
+                self.pivot.translation.z)
+            self.logger:debug("Flipped offset")
         end
+        self.mirrored = after
+
+        -- enabled no cull
+        -- currently armor, cloth are always no cull
+        -- local props = self.pivot:getProperty(ni.propertyType.stencil)
+        -- if props then
+        --     props.drawMode = 3 -- DRAW_BOTH
+        -- end
         self.pivot:update()
     end
 end
@@ -883,6 +884,7 @@ function this.Activate(self, params)
     -- When there are separate polygons on both sides, such as papers,
     -- without backface culling, the back side seems to appear in the foreground depending on both position.
     local backface = object.objectType ~= tes3.objectType.book
+    self.mirrored = false
     if mesh.CanMirror(object) then
         self.logger:debug("Mirror the left part")
         -- item is Y-mirrored
@@ -894,6 +896,7 @@ function this.Activate(self, params)
         local rotation = model.rotation:copy()
         model.rotation = mirror:copy() * rotation:copy()
         backface = true -- must
+        self.mirrored = true
     end
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
@@ -1005,7 +1008,6 @@ function this.Activate(self, params)
     self.activateCallback = function(e)
         self:OnActivate(e)
     end
-    -- TODO if it have
     self.switchAnotherLookCallback = function()
         self:SwitchAnotherLook()
     end
@@ -1027,8 +1029,7 @@ function this.Activate(self, params)
 
     -- It is better to play the sound in another controller, but it is easy to depend on the inspector's state, so run it in that.
     -- it seems it doesn't matter if the ID is not from tes3item.
-    self.objectId = object.id
-    self.objectType = object.objectType
+    self.object = object
     self:PlaySound(true)
 
 end
@@ -1067,8 +1068,7 @@ function this.Deactivate(self, params)
     self.another = nil
     self.anotherBounds = nil
     self.anotherData = nil
-    self.objectId = nil
-    self.objectType = nil
+    self.object = nil
 end
 
 ---@param self Inspector
@@ -1078,8 +1078,7 @@ function this.Reset(self)
     self.original = nil
     self.another = nil
     self.anotherData = nil
-    self.objectId = nil
-    self.objectType = nil
+    self.object = nil
     self.lighting = settings.lightingType.Default
 end
 
