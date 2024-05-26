@@ -193,22 +193,7 @@ function this.SetScale(self, scale)
     self.root.scale = newScale
     -- self.logger:trace("Zoom %f -> %f", prev, scale)
 
-    -- rescale particle
-    -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
-    -- Apply the scale of counterparts
-    -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
-    -- Torch, Mace of Aevar Stone-Singer
-    -- This requires setting the 'trailer' to 0 in niParticleSystemController , which cannot be changed from MWSE.
-    foreach(self.pivot, function(node)
-        if node:isInstanceOfType(ni.type.NiParticles) then
-            ---@cast node niParticles
-            for index, value in ipairs(node.data.sizes) do
-                node.data.sizes[index] = value * (prev / newScale)
-            end
-            node.data:markAsChanged()
-            node.data:updateModelBound() -- need?
-        end
-    end)
+    mesh.RescaleParticle(self.pivot, prev / newScale)
 end
 
 
@@ -394,14 +379,7 @@ function this.SwitchAnotherLook(self)
                     return
                 end
                 -- remove unnecessary nodes
-                foreach(root, function (node)
-                    if node:isInstanceOfType(ni.type.NiTriShape) then -- startswith "tri bip"?
-                        -- collision?
-                        if node.parent then
-                            node.parent:detachChild(node)
-                        end
-                    end
-                end)
+                mesh.CleanMesh(root)
                 --DumpSceneGraph(root)
                 -- skeletal root
                 local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
@@ -429,13 +407,7 @@ function this.SwitchAnotherLook(self)
                         -- remove oppsite parts
                         -- TODO or try to allow just matching name
                         if socketInfo.isLeft ~= nil then
-                            local opposite = "tri " .. ((socketInfo.isLeft == true) and "right" or "left")
-                            foreach(model, function(node)
-                                if node:isInstanceOfType(ni.type.NiTriShape) and node.name and node.name:lower():startswith(opposite) then
-                                    node.parent:detachChild(node)
-                                    self.logger:trace("remove opposite mesh: %s", node.name)
-                                end
-                            end)
+                            mesh.CleanPartMesh(model, socketInfo.isLeft)
                         end
 
 
@@ -837,45 +809,11 @@ function this.Activate(self, params)
 
         self.logger:debug("Load mesh : %s", object.mesh)
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-        -- reset rotation?
+        -- TODO reset rotation?
     end
 
-    local isCreature = object.objectType == tes3.objectType.creature
     -- clean
-    local bit = require("bit")
-    foreach(model, function(node)
-        if not node.parent then
-            return
-        end
-        local remove = false
-        -- In OpenMW only except for creature, but is it bad for creature?
-        -- If it is because the animation changes the visibility, then it should be removed if there is no animation.
-        -- if not isCreature then
-        if bit.band(node.flags, 0x1) == 0x1 then -- invisible
-            remove = true
-            self.logger:trace("remove by visibility")
-        end
-        -- end
-        if node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
-            remove = true
-            self.logger:trace("remove by collision")
-        elseif node:isOfType(ni.type.NiTriShape) then
-            if node.name then
-                local n = node.name:lower()
-                -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_1.htm
-                if n:startswith("tri shadow") then  -- shadow
-                    remove = true
-                    self.logger:trace("remove by tri shadow")
-                elseif n:startswith("tri bip") then -- dummy
-                    remove = true
-                    self.logger:trace("remove by tri bip")
-                end
-            end
-        end
-        if remove then
-            node.parent:detachChild(node)
-        end
-    end)
+    mesh.CleanMesh(model)
     -- DumpSceneGraph(model)
 
     model.translation = tes3vector3.new(0,0,0)
@@ -924,7 +862,7 @@ function this.Activate(self, params)
         -- Here for modding resources, the thickness is used to determine the thin, just as it is used to determine the paper.
         local size = bounds.max - bounds.min
         local thickness = math.min(size.x, size.y, size.z)
-        if thickness < 1 then
+        if thickness < 1.5 then
             backface = false
             self.logger:debug("enable culling backface, thickness: %f", thickness)
         end

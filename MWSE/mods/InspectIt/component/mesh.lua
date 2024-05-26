@@ -1,4 +1,4 @@
----@class NodeProcessor
+---@class MeshProcessor
 local this = {}
 local logger = require("InspectIt.logger")
 local config = require("InspectIt.config")
@@ -8,13 +8,16 @@ local sameArmor = nil ---@type string[]
 local sameClothing = nil ---@type string[]
 
 ---@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
----@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape)
-local function foreach(node, func)
-    func(node)
+---@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape, depth : number)
+---@param depth integer?
+local function foreach(node, func, depth)
+    depth = depth or 0
+    func(node, depth)
     if node.children then
+        local d = depth + 1
         for _, child in ipairs(node.children) do
             if child then
-                foreach(child, func)
+                foreach(child, func, d)
             end
         end
     end
@@ -27,6 +30,8 @@ local function DistanceSquared(a, b)
     return c:dot(c)
 end
 
+-- FIXME Usually, this is not a problem, but if the same mesh is diverted from the armor, even if it is not from the left or right side, it will not work.
+-- We need more information to record in the memo.
 ---@param objectType tes3.objectType
 ---@return string[] ids
 local function CollectSameMeshAsRightPart(objectType)
@@ -36,20 +41,20 @@ local function CollectSameMeshAsRightPart(objectType)
         ---@cast o tes3armor|tes3clothing
         if o.mesh then
             local mesh = o.mesh:lower()
-            if not o.isLeftPart then
-                if memo[mesh] and memo[mesh] ~= true then
-                    result[memo[mesh]] = true
-                    logger:trace("same mesh id: %s, plugin: %s, mesh: %s", memo[mesh], o.sourceMod, mesh)
-                end
-                memo[mesh] = true
-            elseif o.isLeftPart then
+            if o.isLeftPart then
                 local id = o.id:lower()
-                if memo[mesh] == true then
+                if memo[mesh] == true then -- contain boolean
                     result[id] = true
-                    logger:trace("same mesh id: %s, plugin: %s, mesh: %s", id, o.sourceMod, mesh)
+                    logger:trace("same mesh: %s, %s, %s", id, o.sourceMod, mesh)
                 else
                     memo[mesh] = id
                 end
+            else -- right or normal
+                if memo[mesh] and memo[mesh] ~= true then -- contain id
+                    result[memo[mesh]] = true
+                    logger:trace("same mesh: %s, %s, %s", memo[mesh], o.sourceMod, mesh)
+                end
+                memo[mesh] = true
             end
         end
     end
@@ -185,6 +190,80 @@ function this.CalculateBounds(model)
         end)
     end
     return bounds
+end
+
+---@param model niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+---@param scale number
+function this.RescaleParticle(model, scale)
+    -- rescale particle
+    -- It seems that the scale is roughly doubly applied to the size of particles. Positions are correct. Is this a specification?
+    -- Apply the scale of counterparts
+    -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
+    -- Torch, Mace of Aevar Stone-Singer
+    -- This requires setting the 'trailer' to 0 in niParticleSystemController , which cannot be changed from MWSE.
+    foreach(model, function(node, _)
+        if node:isInstanceOfType(ni.type.NiParticles) then
+            ---@cast node niParticles
+            for index, value in ipairs(node.data.sizes) do
+                node.data.sizes[index] = value * scale
+            end
+            node.data:markAsChanged()
+            node.data:updateModelBound() -- need?
+        end
+    end)
+end
+
+--- removeunnecessary node
+---@param model niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+function this.CleanMesh(model)
+    local bit = require("bit")
+    foreach(model, function(node, _)
+        if not node.parent then
+            return
+        end
+        local remove = false
+        -- In OpenMW only except for creature, but is it bad for creature?
+        -- If it is because the animation changes the visibility, then it should be removed if there is no animation.
+        -- if not isCreature then
+        if bit.band(node.flags, 0x1) == 0x1 then -- invisible
+            remove = true
+            logger:trace("remove by visibility")
+        end
+        -- end
+        if node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
+            remove = true
+            logger:trace("remove by collision")
+        elseif node:isOfType(ni.type.NiTriShape) then
+            if node.name then
+                local n = node.name:lower()
+                -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_1.htm
+                if n:startswith("tri shadow") then -- shadow
+                    remove = true
+                    logger:trace("remove by tri shadow")
+                elseif n:startswith("tri bip") then -- dummy
+                    remove = true
+                    logger:trace("remove by tri bip")
+                end
+            end
+        end
+        if remove then
+            node.parent:detachChild(node)
+        end
+    end)
+end
+
+---@param model niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+---@param left boolean
+function this.CleanPartMesh(model, left)
+    -- remove oppsite parts
+    -- TODO or try to allow just matching name
+    local opposite = "tri " .. ((left == true) and "right" or "left")
+    foreach(model, function(node, _)
+        if node:isInstanceOfType(ni.type.NiTriShape) and node.name and node.name:lower():startswith(opposite) then
+            node.parent:detachChild(node)
+            logger:trace("remove opposite mesh: %s", node.name)
+        end
+    end)
 end
 
 return this

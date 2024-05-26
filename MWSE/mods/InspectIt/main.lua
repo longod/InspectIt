@@ -319,37 +319,41 @@ local function OnKeyDown(e)
             local reference = nil ---@type tes3reference?
             if not context.object then
                 if tes3.menuMode() then
-                    if config.inspection.cursorOver and CanSelectByCursor() then
-                        if context.isPlayer then
-                            -- When FPV, it seems there is no full body reference.
-                            if tes3.is3rdPerson() then
-                                reference = tes3.player
-                                context.object = reference.object
-                            elseif config.development.experimental then
-                                reference = tes3.player1stPerson
-                                context.object = reference.object
-                            else
-                                tes3.messageBox(settings.i18n("messageBox.playerRequirement.text"))
-                            end
-                            context.itemData = nil
+                    if context.isPlayer then
+                        -- When FPV, it seems there is no full body reference.
+                        if tes3.is3rdPerson() then
+                            reference = tes3.player
+                            context.object = reference.object
+                        elseif config.development.experimental then
+                            reference = tes3.player1stPerson
+                            context.object = reference.object
                         else
-                            -- cursor to world
-                            local cursor = tes3.getCursorPosition()
-                            local camera = tes3.worldController.worldCamera.cameraData.camera
-                            local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
-                            local hit = tes3.rayTest({
-                                position = position,
-                                direction = direction,
-                                --ignore = { tes3.player },
-                                maxDistance = tes3.getPlayerActivationDistance(),
-                            })
-                            -- hit non activatable objects...
-                            if hit and hit.reference then
-                                logger:debug("Hit: %s", hit.reference.id)
-                                reference = hit.reference
-                                context.object = reference.object
-                                context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
-                            end
+                            tes3.messageBox(settings.i18n("messageBox.playerRequirement.text"))
+                        end
+                        context.itemData = nil
+                    elseif config.inspection.cursorOver and CanSelectByCursor() then
+                        -- cursor to world
+                        local cursor = tes3.getCursorPosition()
+                        local camera = tes3.worldController.worldCamera.cameraData.camera
+                        local position, direction = camera:windowPointToRay({ cursor.x, cursor.y })
+                        local maxDistance = tes3.getPlayerActivationDistance()
+                        if tes3.is3rdPerson() then
+                            -- Too short, so add more distance, Is there any way to get the correct distance?
+                            maxDistance = maxDistance + tes3.getCameraPosition():distance(tes3.getPlayerEyePosition())
+                        end
+
+                        local hit = tes3.rayTest({
+                            position = position,
+                            direction = direction,
+                            --ignore = { tes3.player },
+                            maxDistance = maxDistance ,
+                        })
+                        -- hit non activatable objects...
+                        if hit and hit.reference then
+                            logger:debug("Hit: %s", hit.reference.id)
+                            reference = hit.reference
+                            context.object = reference.object
+                            context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
                         end
                     end
                 else
@@ -361,11 +365,16 @@ local function OnKeyDown(e)
                             context.object = reference.object
                             context.itemData = tes3.getAttachment(reference, "itemData") --[[@as tes3itemData?]]
                         elseif config.development.experimental then
+                            local maxDistance = tes3.getPlayerActivationDistance()
+                            if tes3.is3rdPerson() then
+                                maxDistance = maxDistance +
+                                tes3.getCameraPosition():distance(tes3.getPlayerEyePosition())
+                            end
                             local hit = tes3.rayTest({
                                 position = tes3.getPlayerEyePosition(),
                                 direction = tes3.getPlayerEyeVector(),
                                 ignore = { tes3.player }, -- for no offseted TPV
-                                maxDistance = tes3.getPlayerActivationDistance(),
+                                maxDistance = maxDistance,
                             })
                             if hit and hit.reference then
                                 logger:debug("Hit: %s", hit.reference.id)
@@ -452,8 +461,23 @@ local function OnUIActivated(e)
         image:registerAfter(tes3.uiEvent.mouseOver,
             ---@param ev tes3uiEventData
             function(ev)
-                ResetContext()
-                context.isPlayer = true
+                local accept = config.inspection.inventory
+                -- find menu mode
+                local allowed = {
+                    ["MenuBarter"] = config.inspection.barter,
+                    ["MenuContents"] = config.inspection.contents,
+                }
+                for key, value in pairs(allowed) do
+                    local menu = tes3ui.findMenu(key)
+                    if menu and menu.visible then
+                        accept = value
+                        break
+                    end
+                end
+                if accept then
+                    ResetContext()
+                    context.isPlayer = true
+                end
             end)
         image:registerAfter(tes3.uiEvent.mouseLeave,
             ---@param ev tes3uiEventData
