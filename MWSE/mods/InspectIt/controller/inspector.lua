@@ -918,6 +918,18 @@ function this.Activate(self, params)
     pivot.translation = offset
     pivot:attachChild(model)
 
+    if backface and not self.mirrored then
+        -- When there are separate polygons on both sides, such as papers,
+        -- without backface culling, the back side seems to appear in the foreground depending on both position.
+        -- Here for modding resources, the thickness is used to determine the thin, just as it is used to determine the paper.
+        local size = bounds.max - bounds.min
+        local thickness = math.min(size.x, size.y, size.z)
+        if thickness < 1 then
+            backface = false
+            self.logger:debug("enable culling backface, thickness: %f", thickness)
+        end
+    end
+
     if not backface then
         local props = pivot:getProperty(ni.propertyType.stencil)
         if props then
