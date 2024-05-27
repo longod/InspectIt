@@ -10,14 +10,14 @@ local sameClothing = nil ---@type string[]
 ---@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
 ---@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape, depth : number)
 ---@param depth integer?
-local function foreach(node, func, depth)
+function this.foreach(node, func, depth)
     depth = depth or 0
     func(node, depth)
     if node.children then
         local d = depth + 1
         for _, child in ipairs(node.children) do
             if child then
-                foreach(child, func, d)
+                this.foreach(child, func, d)
             end
         end
     end
@@ -70,6 +70,7 @@ function this.GetArmorSameMeshAsRightPart()
     return sameArmor
 end
 
+---@return string[]
 function this.GetClothingSameMeshAsRightPart()
     if not sameClothing then
         sameClothing = CollectSameMeshAsRightPart(tes3.objectType.clothing)
@@ -126,6 +127,7 @@ function this.ToggleMirror(key)
     return config.leftPartFilter[key]
 end
 
+
 function this.CalculateBounds(model)
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
@@ -135,7 +137,7 @@ function this.CalculateBounds(model)
         logger:debug("prev bounds min: %s", bounds.min)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
-        foreach(model, function(node)
+        this.foreach(model, function(node)
             if node:isOfType(ni.type.NiTriShape) then
                 ---@cast node niTriShape
                 local data = node.data
@@ -201,7 +203,7 @@ function this.RescaleParticle(model, scale)
     -- Works well in most cases, but does not seem to work well for non-following types of particles, etc.
     -- Torch, Mace of Aevar Stone-Singer
     -- This requires setting the 'trailer' to 0 in niParticleSystemController , which cannot be changed from MWSE.
-    foreach(model, function(node, _)
+    this.foreach(model, function(node, _)
         if node:isInstanceOfType(ni.type.NiParticles) then
             ---@cast node niParticles
             for index, value in ipairs(node.data.sizes) do
@@ -217,7 +219,7 @@ end
 ---@param model niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
 function this.CleanMesh(model)
     local bit = require("bit")
-    foreach(model, function(node, _)
+    this.foreach(model, function(node, _)
         if not node.parent then
             return
         end
@@ -252,18 +254,110 @@ function this.CleanMesh(model)
     end)
 end
 
----@param model niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
----@param left boolean
-function this.CleanPartMesh(model, left)
-    -- remove oppsite parts
-    -- TODO or try to allow just matching name
-    local opposite = "tri " .. ((left == true) and "right" or "left")
-    foreach(model, function(node, _)
-        if node:isInstanceOfType(ni.type.NiTriShape) and node.name and node.name:lower():startswith(opposite) then
-            node.parent:detachChild(node)
-            logger:trace("remove opposite mesh: %s", node.name)
-        end
-    end)
+---@diagnostic disable-next-line: undefined-doc-name
+---@param prop niAlphaProperty|niDitherProperty|niFogProperty|niMaterialProperty|niRendererSpecificProperty|niShadeProperty|niSpecularProperty|niStencilProperty|niTexturingProperty|niVertexColorProperty|niWireframeProperty|niZBufferProperty
+---@return string?
+local function DumpProperty(prop)
+    ---@type { [string] : fun() :string? }
+    local func = {
+        ["NiAlphaProperty"] = function() end,
+        ["NiDitherProperty"] = function() end,
+        ["NiFogProperty"] = function() end,
+        ["NiMaterialProperty"] = function()end,
+        ["NiRendererSpecificProperty"] = function()end,
+        ["NiShadeProperty"] = function()end,
+        ["NiSpecularProperty"] = function()end,
+        ["NiStencilProperty"] = function()end,
+        ["NiTexturingProperty"] = function()end,
+        ["NiVertexColorProperty"] = function()end,
+        ["NiWireframeProperty"] = function()end,
+        ["NiZBufferProperty"] = function()end,
+    }
+    local f = func[prop.RTTI.name]
+    if f then
+        return f()
+    end
+    return nil
+end
+
+---@param effect niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect
+---@return string?
+local function DumpDynamicEffect(effect)
+    ---@type { [string] : fun() :string? }
+    local func = {
+        ["NiAmbientLight"] = function()
+        end,
+        ["NiDirectionalLight"] = function()
+        end,
+        ["NiPointLight"] = function()
+            local affected = {}
+            ---@cast effect niPointLight
+            local node = effect.affectedNodes
+            while node do
+                if node.data then
+                    table.insert(affected, node.data.name)
+                end
+                node = node.next
+            end
+            return table.concat(affected)
+        end,
+        ["NiSpotLight"] = function()
+        end,
+        ["NiTextureEffect"] = function()
+        end,
+    }
+    local f = func[effect.RTTI.name]
+    if f then
+        return f()
+    end
+    return nil
+end
+
+---@param root niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
+---@return string
+function this.Dump(root)
+    if not config.development.experimental then
+        return ""
+    end
+    -- TODO json format
+    local str = {}
+    this.foreach(root,
+        function(node, depth)
+            local indent = string.rep("    ", depth)
+            if node then
+                local out = string.format("%s:%s", node.RTTI.name, tostring(node.name))
+                if node.translation and node.rotation and node.scale then
+                    out = out .. "\n" .. indent .. string.format("  local trans %s, rot %s, scale %f", node.translation, node.rotation, node.scale)
+                end
+                if node.worldTransform then
+                    out = out .. "\n" .. indent .. string.format("  world trans %s, rot %s, scale %f", node.worldTransform.translation, node.worldTransform.rotation, node.worldTransform.scale)
+                end
+                local props = node.properties
+                while props and props.data do
+                    out = out .. "\n" .. indent .. string.format("  prop: %s", props.data.RTTI.name)
+                    local p = DumpProperty(props.data)
+                    if p then
+                        out = out .. "\n" .. p
+                    end
+                    props = props.next
+                end
+                local effect = node.effectList
+                while effect and effect.data do
+                    out = out .. "\n" .. indent .. string.format("  effect: %s", effect.data.RTTI.name)
+                    local p = DumpDynamicEffect(effect.data)
+                    if p then
+                        out = out .. "\n" .. p
+                    end
+                    effect = effect.next
+                end
+
+                table.insert(str, indent .. "- " .. out)
+            else
+                table.insert(str, indent .. "- " .. "nil")
+            end
+        end)
+    -- return str
+    return "\n" .. table.concat(str, "\n")
 end
 
 return this

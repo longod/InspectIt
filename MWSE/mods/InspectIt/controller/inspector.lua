@@ -77,62 +77,6 @@ function this.new()
     return instance
 end
 
----@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
----@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape)
-local function foreach(node, func)
-    func(node)
-    if node.children then
-        for _, child in ipairs(node.children) do
-            if child then
-                foreach(child, func)
-            end
-        end
-    end
-end
-
--- advanced traverser, allow nil, more info
----@param node niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?
----@param func fun(node : niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape?, depth : number)
----@param depth integer?
-local function traverse(node, func, depth)
-    depth = depth or 0
-    func(node, depth)
-    if node and node.children then
-        local count = #node.children
-        if count == 1 and not node.children[1] then -- always allocated dummy [1]
-        else
-            local d = depth + 1
-            for _, child in ipairs(node.children) do
-                traverse(child, func, d)
-            end
-        end
-    end
-end
-
----@param root niAmbientLight|niBillboardNode|niCamera|niCollisionSwitch|niDirectionalLight|niNode|niParticles|niPointLight|niRotatingParticles|niSortAdjustNode|niSpotLight|niSwitchNode|niTextureEffect|niTriShape
-local function DumpSceneGraph(root)
-    -- TODO json format
-    local str = {}
-    traverse(root,
-        function(node, depth)
-            local indent = string.rep("    ", depth)
-            if node then
-                local out = string.format("%s:%s", node.RTTI.name, tostring(node.name))
-                if node.translation and node.rotation and node.scale then
-                    out = out .. "\n" .. indent .. string.format("  local trans %s, rot %s, scale %f", node.translation, node.rotation, node.scale)
-                end
-                if node.worldTransform then
-                    out = out .. "\n" .. indent .. string.format("  world trans %s, rot %s, scale %f", node.worldTransform.translation, node.worldTransform.rotation, node.worldTransform.scale)
-                end
-                table.insert(str, indent .. "- " .. out)
-            else
-                table.insert(str, indent .. "- " .. "nil")
-            end
-        end)
-    require("InspectIt.logger"):debug("\n" .. table.concat(str, "\n"))
-    -- return str
-end
-
 ---@param lighting LightingType
 ---@return tes3worldControllerRenderCamera|tes3worldControllerRenderTarget? camera
 ---@return number fovX
@@ -333,43 +277,9 @@ function this.SwitchAnotherLook(self)
 
         if self.anotherData.type == settings.anotherLookType.BodyParts then
             if not self.another then
-                ---@class Socket
-                ---@field name string?
-                ---@field isLeft boolean?
-
-                ---@type {[tes3.activeBodyPart] : Socket }
-                local sockets = {
-                    [tes3.activeBodyPart.head]          = { name = "Head", },
-                    [tes3.activeBodyPart.hair]          = { name = "Head", },
-                    [tes3.activeBodyPart.neck]          = { name = "Neck", },
-                    [tes3.activeBodyPart.chest]         = { name = "Chest", },
-                    [tes3.activeBodyPart.groin]         = { name = "Groin", },
-                    [tes3.activeBodyPart.skirt]         = { name = "Groin", },
-                    [tes3.activeBodyPart.rightHand]     = { name = "Right Hand", isLeft = false },
-                    [tes3.activeBodyPart.leftHand]      = { name = "Left Hand", isLeft = true },
-                    [tes3.activeBodyPart.rightWrist]    = { name = "Right Wrist", isLeft = false },
-                    [tes3.activeBodyPart.leftWrist]     = { name = "Left Wrist", isLeft = true },
-                    [tes3.activeBodyPart.shield]        = { name = "Shield Bone", },
-                    [tes3.activeBodyPart.rightForearm]  = { name = "Right Forearm", isLeft = false },
-                    [tes3.activeBodyPart.leftForearm]   = { name = "Left Forearm", isLeft = true },
-                    [tes3.activeBodyPart.rightUpperArm] = { name = "Right Upper Arm", isLeft = false },
-                    [tes3.activeBodyPart.leftUpperArm]  = { name = "Left Upper Arm", isLeft = true },
-                    [tes3.activeBodyPart.rightFoot]     = { name = "Right Foot", isLeft = false },
-                    [tes3.activeBodyPart.leftFoot]      = { name = "Left Foot", isLeft = true },
-                    [tes3.activeBodyPart.rightAnkle]    = { name = "Right Ankle", isLeft = false },
-                    [tes3.activeBodyPart.leftAnkle]     = { name = "Left Ankle", isLeft = true },
-                    [tes3.activeBodyPart.rightKnee]     = { name = "Right Knee", isLeft = false },
-                    [tes3.activeBodyPart.leftKnee]      = { name = "Left Knee", isLeft = true },
-                    [tes3.activeBodyPart.rightUpperLeg] = { name = "Right Upper Leg", isLeft = false },
-                    [tes3.activeBodyPart.leftUpperLeg]  = { name = "Left Upper Leg", isLeft = true },
-                    [tes3.activeBodyPart.rightPauldron] = { name = "Right Clavicle", isLeft = false },
-                    [tes3.activeBodyPart.leftPauldron]  = { name = "Left Clavicle", isLeft = true },
-                    [tes3.activeBodyPart.weapon]        = { name = "Weapon Bone", }, -- the real node name depends on the current weapon type.
-                    [tes3.activeBodyPart.tail]          = { name = "Tail" },
-                }
 
                 self.another = niNode.new()
-                local data = self.anotherData.data ---@cast data BodyPartsData
+                local data = self.anotherData.data ---@cast data BodyPartData
 
                 -- ground
                 self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
@@ -380,7 +290,6 @@ function this.SwitchAnotherLook(self)
                 end
                 -- remove unnecessary nodes
                 mesh.CleanMesh(root)
-                --DumpSceneGraph(root)
                 -- skeletal root
                 local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
                 if skeletal then
@@ -388,7 +297,7 @@ function this.SwitchAnotherLook(self)
                     self.logger:trace("%s", skeletal.translation)
                     self.logger:trace("%s", skeletal.rotation)
                     self.logger:trace("%s", skeletal.scale)
-                    root = skeletal
+                    -- root = skeletal
                 end
                 -- -- reset
                 root.translation = tes3vector3.new(0,0,0)
@@ -397,81 +306,15 @@ function this.SwitchAnotherLook(self)
 
                 self.another = root
 
+                local bp = require("InspectIt.component.bodypart")
                 for _, part in ipairs(data.parts) do
-                    local bodypart = part.part
-                    local socketInfo = sockets[part.type]
-                    if socketInfo then
-                        self.logger:debug("Load bodypart mesh : %s", bodypart.mesh)
-                        local model = tes3.loadMesh(bodypart.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-
-                        -- remove oppsite parts
-                        -- TODO or try to allow just matching name
-                        if socketInfo.isLeft ~= nil then
-                            mesh.CleanPartMesh(model, socketInfo.isLeft)
-                        end
-
-
-                        local socket = root:getObjectByName(socketInfo.name) --[[@as niNode?]]
-                        if socket and socket.attachChild then
-                            -- self.logger:debug("socket: %s from %d", s, part.type)
-                            self.logger:trace("transform: %s", socket.worldTransform.translation)
-                            self.logger:trace("rotation: %s", socket.worldTransform.rotation:toEulerXYZ())
-                            self.logger:trace("scale: %s", socket.worldTransform.scale)
-
-                            -- retarget
-                            foreach(model, function (node)
-                                if node:isInstanceOfType(ni.type.NiTriShape) then
-                                    if node.skinInstance then
-                                        for index, bone in ipairs(node.skinInstance.bones) do
-                                            node.skinInstance.bones[index] = root:getObjectByName(bone.name)
-                                        end
-                                        -- node.skinInstance.root = skeletal -- crash!
-                                        self.logger:debug("skin: %s", node.name)
-                                    end
-
-                                end
-                            end)
-
-                            -- below maybe no need with skinning
-
-                            -- resolve offset
-                            local offsetNode = model:getObjectByName("BoneOffset")
-                            if offsetNode then
-                                tes3.messageBox(string.format("BoneOffset: %s", offsetNode.translation))
-                                self.logger:debug("BoneOffset: %s", offsetNode.translation)
-                                model.translation = offsetNode.translation:copy()
-                            end
-
-                            -- resolve left
-                            if socketInfo.isLeft == true then
-                                -- non uniform scale
-                                local mirror = tes3matrix33.new(
-                                    -1, 0, 0,
-                                    0, 1, 0,
-                                    0, 0, 1
-                                )
-                                local rotation = model.rotation:copy()
-                                --model.rotation = rotation:copy() * mirror:copy()
-                                model.rotation = mirror:copy() * rotation:copy()
-                                local t = model.translation:copy()
-                                model.translation = mirror:copy() * t:copy()
-                                self.logger:debug("mirror part")
-                            end
-
-                            -- extract root
-                            socket:attachChild(model)
-                        else
-                            self.logger:warn("not find socket %s, %s", socketInfo.name, model.name)
-                            root:attachChild(model)
-                        end
-                    else
-                        self.logger:error("invalid body part %s", bodypart.id)
-                    end
-
+                    bp.SetBodyPart(part, root)
                 end
+
                 -- TODO apply race width, height scaling if npc base
                 self.another:updateEffects()
                 self.another:update()
+                self.logger:debug("%s", mesh.Dump(self.another))
 
                 local bounds = self.another:createBoundingBox()
                 local offset =  (bounds.max + bounds.min) * -0.5
@@ -739,7 +582,7 @@ function this.Activate(self, params)
     if params.referenceNode then
         self.logger:debug("Use reference : %s", params.referenceNode)
         model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-        --DumpSceneGraph(model)
+        self.logger:debug("%s", mesh.Dump(model))
         -- TODO reset animation or switching another
 
         -- test: need retargeting?
@@ -814,7 +657,6 @@ function this.Activate(self, params)
 
     -- clean
     mesh.CleanMesh(model)
-    -- DumpSceneGraph(model)
 
     model.translation = tes3vector3.new(0,0,0)
     model.scale = 1
@@ -838,7 +680,6 @@ function this.Activate(self, params)
     end
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
-    --DumpSceneGraph(model)
 
     local bounds = mesh.CalculateBounds(model)
 

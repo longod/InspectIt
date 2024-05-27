@@ -28,16 +28,16 @@ end
 
  ---@param object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon
  ---@return AnotherLookType? type
- ---@return BodyPartsData|WeaponSheathingData? data
+ ---@return BodyPartData|WeaponSheathingData? data
 local function FindAnotherLook(object)
     if object.objectType == tes3.objectType.armor or object.objectType == tes3.objectType.clothing then
         -- Body Parts
         ---@cast object tes3armor|tes3clothing
-        --[[ -- TODO under researching
-        if tes3.player and tes3.player.object and object.parts then
+        ----[[ -- TODO under researching
+        if config.development.experimental and tes3.player and tes3.player.object and object.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = object.parts
-            local bodyParts = {} ---@type BodyParts[]
+            local bodyParts = {} ---@type BodyPart[]
             for _, ware in ipairs(parts) do
                 local part = ware.male
                 if female and ware.female then
@@ -57,7 +57,7 @@ local function FindAnotherLook(object)
                     return nil, nil
                 end
                 logger:debug("Find bodyparts %d", count)
-                local data = { parts = bodyParts } ---@type BodyPartsData
+                local data = { parts = bodyParts } ---@type BodyPartData
                 return settings.anotherLookType.BodyParts, data
             end
         end
