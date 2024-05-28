@@ -303,7 +303,7 @@ local function CloseBookMenu()
         if menu then
             local close = top:findChild(menu)
             if close and close.visible then
-                logger:debug("close!")
+                logger:debug("Close book/scroll menu")
                 close:triggerEvent(tes3.uiEvent.mouseClick)
                 return true
             end

@@ -3,6 +3,7 @@ local config = require("InspectIt.config")
 local settings = require("InspectIt.settings")
 local ori = require("InspectIt.component.orientation")
 local mesh = require("InspectIt.component.mesh")
+local bit = require("bit")
 local zoomThreshold = 0  -- delta
 local zoomDuration = 0.4 -- second
 local angleThreshold = 0 -- pixel
@@ -381,12 +382,42 @@ function this.SwitchAnotherLook(self)
         end
 
         if self.anotherData.type == settings.anotherLookType.Book and self.anotherData.data.text then
+            -- Currently, when there is no lighting, it is rendered after menus and is in front of the book menu, which is disturbing, so it should be hidden in some way.
+            if self.root then
+                self.root.flags = bit.bor(self.root.flags, 0x1)     -- hidden flags
+                self.root:update()
+                self.logger:debug("Hide the object for book menu")
+            end
+            local menu = nil ---@type tes3uiElement?
+
             if self.anotherData.data.type == tes3.bookType.book then
                 self.logger:debug("Show book menu")
                 tes3ui.showBookMenu(self.anotherData.data.text)
+                menu = tes3ui.findMenu("MenuBook")
             elseif self.anotherData.data.type == tes3.bookType.scroll then
                 self.logger:debug("Show scroll menu")
                 tes3ui.showScrollMenu(self.anotherData.data.text)
+                menu = tes3ui.findMenu("MenuScroll")
+            end
+
+            if menu then
+                -- Return to visibility when book/scroll is closed
+                menu:registerAfter(tes3.uiEvent.destroy, -- or close mouseClick
+                    function(_)
+                        if self.root then
+                            self.root.flags = bit.band(self.root.flags, bit.bnot(0x1))
+                            self.root:update()
+                            self.logger:debug("Show again the object for book menu")
+                        end
+                    end)
+            else
+                -- revert
+                if self.root then
+                    self.root.flags = bit.band(self.root.flags, bit.bnot(0x1))
+                    self.root:update()
+                    self.logger:debug("Revert the object visibility")
+                end
+                self.logger:error("Not find book/scroll menu")
             end
         end
     end
