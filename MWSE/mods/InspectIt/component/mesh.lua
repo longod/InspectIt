@@ -254,6 +254,48 @@ function this.CleanMesh(model)
     end)
 end
 
+--- The player is affected by the same effects as the player,
+--- which is not a problem during FPV since they are almost in the same position,
+--- but may be unnatural during TPV if the distance is too far apart.
+--- But we do not want to probe which effects are affected.
+---@param node niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+function this.AttachDynamicEffect(node)
+    local src = tes3.player1stPerson.sceneNode
+    if tes3.is3rdPerson() then
+        src = tes3.player.sceneNode
+    end
+    if src then
+        local effects = src.effectList
+        while effects do
+            if effects.data then
+                local effect = effects.data --[[@as niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect]]
+                if effect:isInstanceOfType(ni.type.NiLight) then -- only light or point
+                    logger:debug("Attach effect: %s", effect)
+                    node:attachEffect(effect)
+                    effect:attachAffectedNode(node)
+                    effect:updateEffects()
+                end
+            end
+            effects = effects.next
+        end
+    end
+end
+
+---@param node niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+function this.DetachDynamicEffect(node)
+    local effects = node.effectList
+    while effects do
+        if effects.data then
+            local effect = effects.data --[[@as niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect]]
+            logger:debug("Dettach effect: %s", effect)
+            effect:detachAffectedNode(node)
+            effect:updateEffects()
+        end
+        effects = effects.next
+    end
+    node:detachAllEffects()
+end
+
 ---@diagnostic disable-next-line: undefined-doc-name
 ---@param prop niAlphaProperty|niDitherProperty|niFogProperty|niMaterialProperty|niRendererSpecificProperty|niShadeProperty|niSpecularProperty|niStencilProperty|niTexturingProperty|niVertexColorProperty|niWireframeProperty|niZBufferProperty
 ---@return string?

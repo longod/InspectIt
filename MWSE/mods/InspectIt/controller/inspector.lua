@@ -281,7 +281,7 @@ function this.SwitchAnotherLook(self)
                 self.another = niNode.new()
                 local data = self.anotherData.data ---@cast data BodyPartData
 
-                -- ground
+                -- base
                 self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
                 local root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
                 if not root then
@@ -311,28 +311,37 @@ function this.SwitchAnotherLook(self)
                     bp.SetBodyPart(part, root)
                 end
 
+
                 -- TODO apply race width, height scaling if npc base
                 self.another:updateEffects()
                 self.another:update()
-                self.logger:debug("%s", mesh.Dump(self.another))
 
-                local bounds = self.another:createBoundingBox()
+                local bounds = mesh.CalculateBounds(self.another)
+                self.anotherBounds = bounds:copy()
                 local offset =  (bounds.max + bounds.min) * -0.5
                 self.logger:debug("another bounds: %s", bounds)
                 self.logger:debug("another offset: %s", offset)
-                self.anotherBounds = bounds:copy()
+                self.logger:debug("%s", mesh.Dump(self.another))
             end
 
             if self.anotherLook then
                 self.logger:debug("Body parts")
                 self.pivot:detachChild(self.another)
                 self.pivot:attachChild(self.original)
+                local offset = (self.originalBounds.max + self.originalBounds.min) * -0.5
+                self.logger:debug("%s -> %s",self.pivot.translation, offset)
+                self.pivot.translation = offset:copy()
             else
                 self.logger:debug("Physical Item")
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
+                local offset = (self.anotherBounds.max + self.anotherBounds.min) * -0.5
+                self.logger:debug("%s -> %s",self.pivot.translation, offset)
+                self.pivot.translation = offset:copy()
             end
-            -- TODO bounds and re-centering
+            self.pivot:update()
+            self.pivot:updateEffects()
+            -- TODO bounds and re-centering, rotation, base scale,
             self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
         end
@@ -653,6 +662,33 @@ function this.Activate(self, params)
         self.logger:debug("Load mesh : %s", object.mesh)
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
         -- TODO reset rotation?
+
+        -- copy props and effects
+        local src = tes3.player1stPerson.sceneNode
+        if tes3.is3rdPerson() then
+            src = tes3.player.sceneNode
+        end
+        if src then
+            local props = src.properties
+            while props and props.data do
+                self.logger:trace("attach prop: %s", props.data.RTTI.name)
+                -- model:attachProperty(props.data:clone() --[[@as niAlphaProperty|niFogProperty|niMaterialProperty|niStencilProperty|niTexturingProperty|niVertexColorProperty|niZBufferProperty]])
+                props = props.next
+            end
+            local effects = src.effectList
+            while effects and effects.data do
+                self.logger:trace("attach effect: %s", effects.data.RTTI.name)
+                local e = effects.data --[[@as niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect]]
+                -- OK
+                 -- TODO detach
+                -- model:attachEffect(e)
+                -- e:attachAffectedNode(model)
+                -- e:updateEffects()
+                effects = effects.next
+            end
+            model:updateEffects()
+            model:updateProperties()
+        end
     end
 
     -- clean
@@ -733,11 +769,16 @@ function this.Activate(self, params)
         root.rotation = root.rotation * rot:copy()
     end
 
+    -- cloned reference is also cloned the effect list
+    if not params.referenceNode then
+        mesh.AttachDynamicEffect(root)
+    end
+
     self.root = root
     self.pivot = pivot
     self.original = model
-    self.originalBounds = bounds
-    self.anotherBounds = bounds -- FIXME currently same
+    self.originalBounds = bounds:copy()
+    self.anotherBounds = bounds:copy() -- later
     self.another = nil
     self.anotherLook = false
     -- self.lighting = settings.lightingType.Default -- Probably more convenient to carry over previous values
@@ -788,6 +829,7 @@ function this.Activate(self, params)
     -- local l = tes3.player:getOrCreateAttachedDynamicLight(light)
     -- self.root:attachChild(l.light)
 
+
     cameraRoot:attachChild(root)
     cameraRoot:update()
     cameraRoot:updateEffects()
@@ -829,6 +871,8 @@ end
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
     if self.root then
+        mesh.AttachDynamicEffect(self.root)
+
         local camera = GetCamera(self.lighting)
         if camera then
             local cameraRoot = camera.cameraRoot
