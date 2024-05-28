@@ -131,16 +131,23 @@ end
 function this.CalculateBounds(model)
     local bounds = model:createBoundingBox():copy()
     if config.display.recalculateBounds then
+        local backup = bounds:copy()
         -- vertex only bounds
         -- more tight bounds, but possible too heavy.
         logger:debug("prev bounds max: %s", bounds.max)
         logger:debug("prev bounds min: %s", bounds.min)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
+        local accept = false
         this.foreach(model, function(node)
             if node:isOfType(ni.type.NiTriShape) then
                 ---@cast node niTriShape
                 local data = node.data
+                if data.vertexCount == 0 then
+                    logger:warn("niTriShape has was no geometry: %s", node.name)
+                    return
+                end
+
                 local transform = node.worldTransform:copy()
                 if node.skinInstance and node.skinInstance.root then
                     -- skinning seems still skeleton relative or the original world coords from the root to this node
@@ -187,10 +194,18 @@ function this.CalculateBounds(model)
                 bounds.min.x = math.min(bounds.min.x, min.x);
                 bounds.min.y = math.min(bounds.min.y, min.y);
                 bounds.min.z = math.min(bounds.min.z, min.z);
-
+                accept = true
             end
         end)
+
+        -- no geometry
+        if not accept then
+            bounds = backup
+            -- original may also be incorrect?
+            logger:warn("Since there was no geometry, MWSE bounds will be used.")
+        end
     end
+
     return bounds
 end
 

@@ -67,6 +67,7 @@ function  this.SetBodyPart(bodypart, root)
 
     local skinNode = nil ---@type niNode?
 
+    -- FIXME It's not exact emulation.
     mesh.foreach(model, function(node, _)
         if node:isInstanceOfType(ni.type.NiTriShape) then
             if opposite and node.name and node.name:lower():startswith(opposite) then
@@ -90,8 +91,7 @@ function  this.SetBodyPart(bodypart, root)
             else
                 --  transofrm is keep?
 
-                -- root or child inside?
-                local offsetNode = node:getObjectByName("BoneOffset")
+                local offsetNode = model:getObjectByName("BoneOffset")
                 if offsetNode then
                     logger:trace("BoneOffset: %s", offsetNode.translation)
                     node.translation = offsetNode.translation:copy() -- copy to trishape? parent node?

@@ -36,3 +36,4 @@ This mod allow you to inspect a variety of objects.
 - To inspect the player yourself, you have to be TPV.
 - Animations are not played. Especially particles.
 - Trailer-type particles are not displayed.
+- Light sources do not light up.

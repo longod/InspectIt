@@ -289,6 +289,29 @@ local function ResetContext()
     context.isPlayer = false
 end
 
+---@type {[number]: number}
+local bookMenus = {
+    [tes3ui.registerID("MenuBook")] = tes3ui.registerID("MenuBook_button_close"),
+    [tes3ui.registerID("MenuScroll")] = tes3ui.registerID("MenuScroll_Close"),
+}
+
+---@return boolean
+local function CloseBookMenu()
+    local top = tes3ui.getMenuOnTop()
+    if top then
+        local menu = bookMenus[top.id]
+        if menu then
+            local close = top:findChild(menu)
+            if close and close.visible then
+                logger:debug("close!")
+                close:triggerEvent(tes3.uiEvent.mouseClick)
+                return true
+            end
+        end
+    end
+    return false
+end
+
 ---@param e keyDownEventData
 local function OnKeyDown(e)
     if tes3.onMainMenu() then
@@ -298,6 +321,18 @@ local function OnKeyDown(e)
     if context.enable then
         if settings.OnOtherMenu() then
             -- pause
+
+            -- When a book is open, it can be closed and finished
+            -- Here's where I'd like to delegate because I don't know the state inside the controller...
+            if TestInput(e, config.input.inspect) then
+                if CloseBookMenu() then
+                    context.enable = false
+                    LeaveInspection(false) -- TODO play up/down both sound... separate flags?
+                    tes3.worldController.menuClickSound:play()
+                end
+            elseif TestInput(e, config.input.another) then
+                CloseBookMenu()
+            end
         else
             if TestInput(e, config.input.inspect) then
                 context.enable = false

@@ -663,32 +663,6 @@ function this.Activate(self, params)
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
         -- TODO reset rotation?
 
-        -- copy props and effects
-        local src = tes3.player1stPerson.sceneNode
-        if tes3.is3rdPerson() then
-            src = tes3.player.sceneNode
-        end
-        if src then
-            local props = src.properties
-            while props and props.data do
-                self.logger:trace("attach prop: %s", props.data.RTTI.name)
-                -- model:attachProperty(props.data:clone() --[[@as niAlphaProperty|niFogProperty|niMaterialProperty|niStencilProperty|niTexturingProperty|niVertexColorProperty|niZBufferProperty]])
-                props = props.next
-            end
-            local effects = src.effectList
-            while effects and effects.data do
-                self.logger:trace("attach effect: %s", effects.data.RTTI.name)
-                local e = effects.data --[[@as niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect]]
-                -- OK
-                 -- TODO detach
-                -- model:attachEffect(e)
-                -- e:attachAffectedNode(model)
-                -- e:updateEffects()
-                effects = effects.next
-            end
-            model:updateEffects()
-            model:updateProperties()
-        end
     end
 
     -- clean
