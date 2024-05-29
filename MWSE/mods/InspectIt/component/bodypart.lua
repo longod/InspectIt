@@ -65,32 +65,33 @@ function  this.SetBodyPart(bodypart, root)
         opposite = "tri " .. ((socket.isLeft == true) and "right" or "left")
     end
 
+    -- skin parent node
     local skinNode = nil ---@type niNode?
 
     -- FIXME It's not exact emulation.
     mesh.foreach(model, function(node, _)
         if node:isInstanceOfType(ni.type.NiTriShape) then
             if opposite and node.name and node.name:lower():startswith(opposite) then
-                -- opposite part
+                -- ignore opposite part
                 logger:trace("%s ignore by %s", node.name, tostring(opposite))
                 return
             end
             if node.skinInstance then
-                for index, bone in ipairs(node.skinInstance.bones) do
-                    node.skinInstance.bones[index] = root:getObjectByName(bone.name)
-                end
-                if node.skinInstance.root then
-                    --node.skinInstance.root = root:getObjectByName(node.skinInstance.root.name)
-                    node.skinInstance.root = root
-                end
                 if not skinNode then
                     skinNode = niNode.new()
                     skinNode.name = socket.name
                 end
                 skinNode:attachChild(node)
+                for index, bone in ipairs(node.skinInstance.bones) do
+                    node.skinInstance.bones[index] = root:getObjectByName(bone.name)
+                end
+                if node.skinInstance.root then
+                    node.skinInstance.root = skinNode
+                end
             else
                 --  transofrm is keep?
 
+                -- In the case of vanilla, this seems to be fine without it because it is used as light sources...
                 local offsetNode = model:getObjectByName("BoneOffset")
                 if offsetNode then
                     logger:trace("BoneOffset: %s", offsetNode.translation)

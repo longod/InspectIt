@@ -33,8 +33,7 @@ local function FindAnotherLook(object)
     if object.objectType == tes3.objectType.armor or object.objectType == tes3.objectType.clothing then
         -- Body Parts
         ---@cast object tes3armor|tes3clothing
-        ----[[ -- TODO under researching
-        if config.development.experimental and tes3.player and tes3.player.object and object.parts then
+        if tes3.player and tes3.player.object and object.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = object.parts
             local bodyParts = {} ---@type BodyPart[]
@@ -52,6 +51,7 @@ local function FindAnotherLook(object)
             if count > 0 then
                 -- same mesh (shield)
                 -- or just shield, helms
+                -- TODO just only shield, helm?
                 if count == 1 and bodyParts[1].part.mesh == object.mesh then
                     logger:debug("A bodypart is same mesh as object: %s", object.mesh)
                     return nil, nil
@@ -61,7 +61,6 @@ local function FindAnotherLook(object)
                 return settings.anotherLookType.BodyParts, data
             end
         end
-        --]]
     elseif object.objectType == tes3.objectType.weapon then
         -- Weapon Sheathing
         local sheathMesh = require("InspectIt.mod").FindWeaponSheathingMesh(object.mesh)

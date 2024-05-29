@@ -312,6 +312,11 @@ function this.SwitchAnotherLook(self)
                     bp.SetBodyPart(part, root)
                 end
 
+                -- rotate to original object relative
+                local orientation = ori.GetBodyPartOrientation(self.object)
+                local rot = tes3matrix33.new()
+                rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
+                self.another.rotation = self.baseRotation:copy():transpose() * rot:copy()
 
                 -- TODO apply race width, height scaling if npc base
                 self.another:updateEffects()
@@ -326,23 +331,29 @@ function this.SwitchAnotherLook(self)
             end
 
             if self.anotherLook then
-                self.logger:debug("Body parts")
+                self.logger:debug("Body parts to Physical Item")
                 self.pivot:detachChild(self.another)
                 self.pivot:attachChild(self.original)
                 local offset = (self.originalBounds.max + self.originalBounds.min) * -0.5
-                self.logger:debug("%s -> %s",self.pivot.translation, offset)
+                self.logger:trace("%s -> %s",self.pivot.translation, offset)
                 self.pivot.translation = offset:copy()
             else
-                self.logger:debug("Physical Item")
+                self.logger:debug("Physical Item to Body parts")
                 self.pivot:detachChild(self.original)
                 self.pivot:attachChild(self.another)
                 local offset = (self.anotherBounds.max + self.anotherBounds.min) * -0.5
-                self.logger:debug("%s -> %s",self.pivot.translation, offset)
+                self.logger:trace("%s -> %s",self.pivot.translation, offset)
                 self.pivot.translation = offset:copy()
             end
+
+            -- Rotation is not a problem in the relative orientation.
+            -- But if the scales are in similar proportions, relative scales are fine, but if they aren't, I guess they're may be cliped...
+            -- So adjust the appropriate scale and zoom amount
+            -- FIXME This doesn't have to be computed for each time, just have double the data.
+            self:AdjustScale(self.lighting, not self.anotherLook)
+
             self.pivot:update()
             self.pivot:updateEffects()
-            -- TODO bounds and re-centering, rotation, base scale,
             self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
         end
@@ -425,25 +436,41 @@ function this.SwitchAnotherLook(self)
 end
 
 ---@param self Inspector
-function this.SwitchLighting(self)
-    -- next type
-    local lighting = self.lighting + 1
-    if lighting > table.size(settings.lightingType) then -- mod, avoid floor
-       lighting = 1
-    end
-    local prev = GetCamera(self.lighting)
-    local next, fovX = GetCamera(lighting)
-    if prev and next then
-        self.logger:debug("Switch lighting: %d -> %d", self.lighting, lighting)
-        -- Currently the only difference in lighting is the camera
+---@param bounds tes3boundingBox
+---@param distance number
+---@param nearPlaneDistance number
+---@return number limitScale
+function this.CalculateZoomMax(self, bounds, distance, nearPlaneDistance)
+    -- zoom limitation
+    local extents = (bounds.max - bounds.min) * 0.5 -- * self.baseScale
+    self.logger:debug("bounds extents %s", extents)
+    local halfLength = extents:length()
+    -- halfLength = math.max(extents.x, extents.y, extents.z, 0)
+    -- Offset because it is clipped before the near clip for some reason.
+    local clipOffset = 3
+    -- I would expect the near to be the same even if the camera is different, and it is.
+    local limitScale = math.max(distance - (nearPlaneDistance + clipOffset), nearPlaneDistance) / math.max(halfLength, math.fepsilon)
+    self.logger:debug("halfLength %f, limitScale %f (%f)", halfLength, limitScale, limitScale / self.baseScale)
+    return limitScale -- relative scale, apply base scale after
+    -- self.zoomMax = math.max(limitScale / self.baseScale, 1)
+    -- self.zoomMax = 2
+end
 
+---@param self Inspector
+---@param lighting LightingType
+---@param anotherLook boolean
+function this.AdjustScale(self, lighting, anotherLook)
+    local camera, fovX = GetCamera(lighting)
+    if camera then
         -- recalculate base scale, fov changed
         -- but different perspective due to changes in angle of view will occur.
-        local cameraData = next.cameraData
-        local bounds = self.anotherLook and self.anotherBounds or self.originalBounds
+        local cameraData = camera.cameraData
+        local bounds = anotherLook and self.anotherBounds or self.originalBounds
         if bounds then
             local baseScale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, self.distance.y, fovX, fittingRatio)
             self.baseScale = baseScale
+
+            self.zoomMax = self:CalculateZoomMax(bounds, self.distance.y ,cameraData.nearPlaneDistance)
 
             -- rescale limit
             -- Or always use the camera with the widest field of view of those you plan to use.
@@ -462,6 +489,24 @@ function this.SwitchLighting(self)
             dest.z = math.clamp(dest.z * self.distance.z, -self.distance.z, self.distance.z)
             self.root.translation = dest
         end
+    end
+end
+
+---@param self Inspector
+function this.SwitchLighting(self)
+    -- next type
+    local lighting = self.lighting + 1
+    if lighting > table.size(settings.lightingType) then -- mod, avoid floor
+       lighting = 1
+    end
+    ---@cast lighting LightingType
+    local prev = GetCamera(self.lighting)
+    local next, fovX = GetCamera(lighting)
+    if prev and next then
+        self.logger:debug("Switch lighting: %d -> %d", self.lighting, lighting)
+        -- Currently the only difference in lighting is the camera
+
+        self:AdjustScale(lighting, self.anotherLook)
 
         prev.cameraRoot:detachChild(self.root)
         next.cameraRoot:attachChild(self.root) -- lighting == settings.lightingType.Constant
@@ -612,6 +657,8 @@ end
 ---@param self Inspector
 ---@param params Activate.Params
 function this.Activate(self, params)
+    self.logger:debug("[Activate] Inspector")
+
     local object = params.object
     if not object then
         self.logger:error("No Object")
@@ -623,22 +670,12 @@ function this.Activate(self, params)
         self.logger:debug("Use reference : %s", params.referenceNode)
         model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
         self.logger:debug("%s", mesh.Dump(model))
+        -- This clone also seems to retarget skinInstance.bones and skinInstance.root by deep copying.
+        -- So, retargeting like bodypart is not necessary.
+
         -- TODO reset animation or switching another
 
-        -- test: need retargeting?
-        --[[
-        foreach(model, function(node)
-            if node:isOfType(ni.type.NiTriShape) then
-                if node.skinInstance then
-                    for index, bone in ipairs(node.skinInstance.bones) do
-                        node.skinInstance.bones[index] = model:getObjectByName(bone.name)
-                    end
-                end
-            end
-        end)
-        --]]
-
-        -- test: copy base idle pose, but left parts resetted. skin is wired?
+        -- TODO test: copy base idle pose, but left parts resetted. skin is wired?
         --[[
         local mesh = object.mesh
         self.logger:debug("Load mesh : %s", mesh)
@@ -811,28 +848,7 @@ function this.Activate(self, params)
     self.zoomEnd = 1
     self.zoomTime = zoomDuration
 
-    -- zoom limitation
-    local extents = (bounds.max - bounds.min) * 0.5 -- * self.baseScale
-    self.logger:debug("bounds extents %s", extents)
-    local halfLength = extents:length()
-    -- halfLength = math.max(extents.x, extents.y, extents.z, 0)
-    -- Offset because it is clipped before the near clip for some reason.
-    local clipOffset = 3
-    -- I would expect the near to be the same even if the camera is different, and it is.
-    local limitScale = math.max(distance - (cameraData.nearPlaneDistance + clipOffset), cameraData.nearPlaneDistance) / math.max(halfLength, math.fepsilon)
-    self.logger:debug("halfLength %f, limitScale %f (%f)", halfLength, limitScale, limitScale / self.baseScale)
-    self.zoomMax = limitScale -- relative scale, apply base scale after
-    --self.zoomMax = math.max(limitScale / self.baseScale, 1)
-    -- self.zoomMax = 2
-
-    -- local ref = tes3.createReference({ object = object, position = tes3vector3.new(0,0,0), orientation = tes3vector3.new(0,0,0) })
-    -- local light = niPointLight.new()
-    -- light:setAttenuationForRadius(256)
-    -- light.diffuse = niColor.new(1,1,1)
-    -- light.ambient = niColor.new(0,0,0)
-    -- light.dimmer = 1
-    -- local l = tes3.player:getOrCreateAttachedDynamicLight(light)
-    -- self.root:attachChild(l.light)
+    self.zoomMax = self:CalculateZoomMax(bounds, distance,cameraData.nearPlaneDistance)
 
 
     cameraRoot:attachChild(root)
@@ -876,7 +892,9 @@ end
 ---@param params Deactivate.Params
 function this.Deactivate(self, params)
     if self.root then
-        mesh.AttachDynamicEffect(self.root)
+        self.logger:debug("[Deactivate] Inspector")
+
+        mesh.DetachDynamicEffect(self.root)
 
         local camera = GetCamera(self.lighting)
         if camera then

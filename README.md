@@ -26,9 +26,7 @@ This mod allow you to inspect a variety of objects.
   - If those are sheathed weapons by that mod, you can switch the display to it.
 
 ## Known Issues and Future Work
-- It is not affected by point lights or spot lights. Try to switch lighting.
 - When it is not lit, it is rendered in front of the UI.
-- Another look at armor and clothing with body parts is under research.
 - It does not work correctly while rotating the camera while holding down the tab key during TPV.
 - It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
 - For some objects, the initial orientation or position is not appropriate.
