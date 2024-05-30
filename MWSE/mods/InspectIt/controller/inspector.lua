@@ -465,7 +465,10 @@ function this.AdjustScale(self, lighting, anotherLook)
         -- recalculate base scale, fov changed
         -- but different perspective due to changes in angle of view will occur.
         local cameraData = camera.cameraData
-        local bounds = anotherLook and self.anotherBounds or self.originalBounds
+        local bounds = self.originalBounds
+        if anotherLook then
+            bounds = self.anotherBounds
+        end
         if bounds then
             local baseScale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, self.distance.y, fovX, fittingRatio)
             self.baseScale = baseScale

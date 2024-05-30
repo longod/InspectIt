@@ -49,12 +49,12 @@ local function FindAnotherLook(object)
             end
             local count = table.size(bodyParts)
             if count > 0 then
-                -- same mesh (shield)
-                -- or just shield, helms
-                -- TODO just only shield, helm?
-                if count == 1 and bodyParts[1].part.mesh == object.mesh then
-                    logger:debug("A bodypart is same mesh as object: %s", object.mesh)
-                    return nil, nil
+                -- just shield, helms
+                if object.objectType == tes3.objectType.armor and (object.slot == tes3.armorSlot.helmet or object.slot == tes3.armorSlot.shield) then
+                    if count == 1 and bodyParts[1].part.mesh == object.mesh then
+                        logger:debug("A bodypart is same mesh as object: %s", object.mesh)
+                        return nil, nil
+                    end
                 end
                 logger:debug("Find bodyparts %d", count)
                 local data = { parts = bodyParts } ---@type BodyPartData
@@ -255,7 +255,7 @@ local deniedMenus = {
     tes3ui.registerID("MenuBarter"),
 }
 
--- TODO I'm sure there's a smarter way, but I can't find a way.
+-- FIXME I'm sure there's a smarter way, but I can't find a way.
 ---@return boolean
 local function CanSelectByCursor()
     local top = tes3ui.getMenuOnTop()
@@ -322,11 +322,11 @@ local function OnKeyDown(e)
             -- pause
 
             -- When a book is open, it can be closed and finished
-            -- Here's where I'd like to delegate because I don't know the state inside the controller...
+            -- FIXME Here's where I'd like to delegate because I don't know the state inside the controller...
             if TestInput(e, config.input.inspect) then
                 if CloseBookMenu() then
                     context.enable = false
-                    LeaveInspection(false) -- TODO play up/down both sound... separate flags?
+                    LeaveInspection(false) -- FIXME won't play up/down both sound... separate flags?
                     tes3.worldController.menuClickSound:play()
                 end
             elseif TestInput(e, config.input.another) then
