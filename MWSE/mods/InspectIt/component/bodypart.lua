@@ -38,6 +38,7 @@ local sockets = {
     [tes3.activeBodyPart.tail]          = { name = "Tail" },
 }
 
+---@deprecated
 ---@param bodypart BodyPart
 ---@param root niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
 function  this.SetBodyPart(bodypart, root)
@@ -85,9 +86,7 @@ function  this.SetBodyPart(bodypart, root)
                 for index, bone in ipairs(node.skinInstance.bones) do
                     node.skinInstance.bones[index] = root:getObjectByName(bone.name)
                 end
-                if node.skinInstance.root then
-                    node.skinInstance.root = skinNode
-                end
+                node.skinInstance.root = skinNode
             else
                 --  transofrm is keep?
 
@@ -124,6 +123,93 @@ function  this.SetBodyPart(bodypart, root)
     if skinNode then
         root:attachChild(skinNode)
     end
+
+end
+
+---@param bodypart BodyPart
+---@param root niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
+function this.BuildBodyPart(bodypart, root)
+    local part = bodypart.part
+    local socket = sockets[bodypart.type]
+    if not socket then
+        logger:error("Not find activeBodyPart %d, %s", bodypart.type, bodypart.part.id)
+        return
+    end
+    logger:debug("Load bodypart mesh: %s", part.mesh)
+    if not tes3.getFileExists(string.format("Meshes\\%s", part.mesh)) then
+        logger:error("Not exist mesh: %s", part.mesh)
+        return
+    end
+    local model = tes3.loadMesh(part.mesh, false):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+
+    local to = root:getObjectByName(socket.name) --[[@as niNode]]
+    if not to then
+        logger:error("Not find to attach to %s", socket.name)
+        return
+    end
+
+    local from = model:getObjectByName(socket.name) --[[@as niNode]]
+    if not from then
+        -- In the case of nonskin, the ninode may not have the same name or only trishape is in the root
+        if model:isOfType(ni.type.NiNode) then
+            from = model
+            from.name = socket.name -- FIXME rename attach name, skirt is not groin, its skirt.
+        else
+            from = niNode.new()
+            from.name = socket.name -- rename
+            from:attachChild(model)
+        end
+    end
+
+    local skin = false
+    mesh.foreach(from, function(node, _)
+        if node:isInstanceOfType(ni.type.NiTriShape) then
+            if node.skinInstance then
+                -- sometime crash..
+                skin = true
+                if node.skinInstance.root ~= nil then
+                    --node.skinInstance.root = node.parent
+                    node.skinInstance.root = root
+                end
+                if node.skinInstance.bones ~= nil then
+                    for index, bone in ipairs(node.skinInstance.bones) do
+                        if bone ~= nil and bone.name ~= nil then
+                            node.skinInstance.bones[index] = root:getObjectByName(bone.name)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    if skin then
+        from:clearTransforms()
+        root:attachChild(from)
+    else
+        if socket.isLeft == true then
+            from.rotation = tes3matrix33.new(
+                -1, 0, 0,
+                0, 1, 0,
+                0, 0, 1
+            )
+            local parent = niNode.new() -- BSMirroredNode
+            parent.name = from.name
+            from.name = "Mirrored"
+            -- non uniform scale
+            parent:attachChild(from)
+            from = parent
+        end
+        from:copyTransforms(to)
+        -- untested
+        -- In the case of vanilla, this seems to be fine without it because it is used as light sources...
+        local offset = model:getObjectByName("BoneOffset")
+        if offset then
+            logger:trace("BoneOffset: %s", offset.translation)
+            from.translation = from.translation:copy() + offset.translation:copy()
+        end
+        to.parent:attachChild(from)
+    end
+    -- remove original bone
+    to.parent:detachChild(to)
 
 end
 

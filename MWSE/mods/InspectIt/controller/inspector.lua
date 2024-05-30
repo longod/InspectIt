@@ -291,15 +291,7 @@ function this.SwitchAnotherLook(self)
                 end
                 -- remove unnecessary nodes
                 mesh.CleanMesh(root)
-                -- skeletal root
-                local skeletal = root:getObjectByName("Bip01") --[[@as niNode?]]
-                if skeletal then
-                    self.logger:trace("skeletal")
-                    self.logger:trace("%s", skeletal.translation)
-                    self.logger:trace("%s", skeletal.rotation)
-                    self.logger:trace("%s", skeletal.scale)
-                    -- root = skeletal
-                end
+
                 -- -- reset
                 root.translation = tes3vector3.new(0,0,0)
                 root.scale = 1
@@ -309,7 +301,8 @@ function this.SwitchAnotherLook(self)
 
                 local bp = require("InspectIt.component.bodypart")
                 for _, part in ipairs(data.parts) do
-                    bp.SetBodyPart(part, root)
+                    bp.BuildBodyPart(part, root)
+                    --p.SetBodyPart(part, root)
                 end
 
                 -- rotate to original object relative

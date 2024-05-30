@@ -161,6 +161,7 @@ function this.Activate(self, params)
         block:createLabel({ text = settings.i18n("guide.zoom.text") })
 
         -- mirror the left part
+        -- TODO seal when body part
         if config.display.leftPart and self.object.isLeftPart then
             local button, _, label = CreateButton(block, settings.i18n("guide.leftPart.text"), "placeholder")
             local function FilterChanged()
