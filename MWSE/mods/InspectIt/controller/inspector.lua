@@ -320,7 +320,7 @@ function this.SwitchAnotherLook(self)
                 local offset =  (bounds.max + bounds.min) * -0.5
                 self.logger:debug("another bounds: %s", bounds)
                 self.logger:debug("another offset: %s", offset)
-                self.logger:debug("%s", mesh.Dump(self.another))
+                self.logger:trace("%s", mesh.Dump(self.another))
             end
 
             if self.anotherLook then
@@ -349,6 +349,8 @@ function this.SwitchAnotherLook(self)
             self.pivot:updateEffects()
             self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
+
+            -- TODO notify disabling mirroring option
         end
 
         if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
@@ -665,7 +667,7 @@ function this.Activate(self, params)
     if params.referenceNode then
         self.logger:debug("Use reference : %s", params.referenceNode)
         model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-        self.logger:debug("%s", mesh.Dump(model))
+        self.logger:trace("%s", mesh.Dump(model))
         -- This clone also seems to retarget skinInstance.bones and skinInstance.root by deep copying.
         -- So, retargeting like bodypart is not necessary.
 

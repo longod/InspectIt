@@ -140,7 +140,11 @@ function this.BuildBodyPart(bodypart, root)
         logger:error("Not exist mesh: %s", part.mesh)
         return
     end
+    -- cache remaining skin instance?
     local model = tes3.loadMesh(part.mesh, false):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
+    -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
+    logger:trace("%s", mesh.Dump(model))
 
     local to = root:getObjectByName(socket.name) --[[@as niNode]]
     if not to then
@@ -148,68 +152,82 @@ function this.BuildBodyPart(bodypart, root)
         return
     end
 
-    local from = model:getObjectByName(socket.name) --[[@as niNode]]
-    if not from then
-        -- In the case of nonskin, the ninode may not have the same name or only trishape is in the root
-        if model:isOfType(ni.type.NiNode) then
-            from = model
-            from.name = socket.name -- FIXME rename attach name, skirt is not groin, its skirt.
-        else
-            from = niNode.new()
-            from.name = socket.name -- rename
-            from:attachChild(model)
-        end
-    end
+    -- case-senstive?
+    local bip01 = model:getObjectByName("Bip01") --[[@as niNode]]
+    local rootbone = model:getObjectByName("Root Bone") --[[@as niNode]] -- maybe creature only
+    local skeleton = bip01 ~= nil or rootbone ~= nil
 
-    local skin = false
-    mesh.foreach(from, function(node, _)
-        if node:isInstanceOfType(ni.type.NiTriShape) then
-            if node.skinInstance then
-                -- sometime crash..
-                skin = true
-                if node.skinInstance.root ~= nil then
-                    --node.skinInstance.root = node.parent
-                    node.skinInstance.root = root
+    if skeleton then
+        -- place root children
+        local parent = niNode.new()
+        parent.name = socket.name -- TODO skirt is skirt
+        root:attachChild(parent)
+        to.parent:detachChild(to)
+
+        local prefix = "tri " .. socket.name:lower()
+        logger:trace("trishape prefix: %s", prefix)
+        mesh.foreach(model, function(node, _)
+            if node:isInstanceOfType(ni.type.NiTriShape) then
+                if node.name and node.name:lower():startswith(prefix) ~= true then
+                    -- ignore opposite part
+                    logger:trace("ignored: %s", node.name)
+                    return
                 end
-                if node.skinInstance.bones ~= nil then
-                    for index, bone in ipairs(node.skinInstance.bones) do
-                        if bone ~= nil and bone.name ~= nil then
-                            node.skinInstance.bones[index] = root:getObjectByName(bone.name)
+                parent:attachChild(node)
+                -- retarget
+                if node.skinInstance then
+                    -- sometime crash..
+                    if node.skinInstance.root ~= nil then
+                        --node.skinInstance.root = node.parent
+                        node.skinInstance.root = parent
+                    end
+                    if node.skinInstance.bones ~= nil then
+                        for index, bone in ipairs(node.skinInstance.bones) do
+                            if bone ~= nil and bone.name ~= nil then
+                                node.skinInstance.bones[index] = root:getObjectByName(bone.name)
+                            end
                         end
                     end
                 end
             end
-        end
-    end)
-    if skin then
-        from:clearTransforms()
-        root:attachChild(from)
+        end)
     else
+        -- use root node
+        local parent = model
+        parent.name = socket.name
+        parent:copyTransforms(to)
+
+        -- bone offset
+        -- untest: In the case of vanilla, this seems to be fine without it because it is used as light sources...
+        local offset = model:getObjectByName("BoneOffset")
+        if offset then
+            logger:trace("BoneOffset: %s", offset.translation)
+            parent.translation = parent.translation:copy() + offset.translation:copy()
+        end
+
+        -- mirror
         if socket.isLeft == true then
-            from.rotation = tes3matrix33.new(
+            -- BSMirroredNode
+            local mirror = niNode.new()
+            mirror.name = "Mirrored"
+            mirror.rotation = tes3matrix33.new(
                 -1, 0, 0,
                 0, 1, 0,
                 0, 0, 1
             )
-            local parent = niNode.new() -- BSMirroredNode
-            parent.name = from.name
-            from.name = "Mirrored"
-            -- non uniform scale
-            parent:attachChild(from)
-            from = parent
+            -- add stencil property
+            for _, child in ipairs(parent.children) do
+                mirror:attachChild(child)
+            end
+            parent:detachAllChildren()
+            parent:attachChild(mirror)
         end
-        from:copyTransforms(to)
-        -- untested
-        -- In the case of vanilla, this seems to be fine without it because it is used as light sources...
-        local offset = model:getObjectByName("BoneOffset")
-        if offset then
-            logger:trace("BoneOffset: %s", offset.translation)
-            from.translation = from.translation:copy() + offset.translation:copy()
-        end
-        to.parent:attachChild(from)
+
+        -- replace
+        to.parent:attachChild(parent)
+        to.parent:detachChild(to)
+
     end
-    -- remove original bone
-    to.parent:detachChild(to)
 
 end
 
