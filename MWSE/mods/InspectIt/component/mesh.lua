@@ -297,18 +297,34 @@ function this.AttachDynamicEffect(node)
 end
 
 ---@param node niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
-function this.DetachDynamicEffect(node)
+---@param recursive boolean
+function this.DetachDynamicEffect(node, recursive)
+    local list = {} -- Detaching and then iterating seems to cause linked list to shrink and crash?
     local effects = node.effectList
     while effects do
         if effects.data then
-            local effect = effects.data --[[@as niAmbientLight|niDirectionalLight|niPointLight|niSpotLight|niTextureEffect]]
-            logger:debug("Dettach effect: %s", effect)
-            effect:detachAffectedNode(node)
-            effect:updateEffects()
+            -- logger:trace("effect: %s", effects.data)
+            table.insert(list, effects.data)
         end
         effects = effects.next
     end
-    node:detachAllEffects()
+    for _, effect in ipairs(list) do
+        logger:debug("Dettach effect: %s", effect)
+        effect:detachAffectedNode(node)
+        effect:updateEffects()
+    end
+    if node.detachAllEffects then
+        node:detachAllEffects()
+    end
+    list = nil
+
+    if recursive and node.children then
+        for _, child in ipairs(node.children) do
+            if child then
+                this.DetachDynamicEffect(child, recursive)
+            end
+        end
+    end
 end
 
 ---@diagnostic disable-next-line: undefined-doc-name

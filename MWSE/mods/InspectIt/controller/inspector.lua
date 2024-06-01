@@ -692,6 +692,33 @@ function this.Activate(self, params)
         end)
         --]]
 
+        -- Examine how the node remains in the effect
+        --[[
+        local src = tes3.player1stPerson.sceneNode
+        if tes3.is3rdPerson() then
+            src = tes3.player.sceneNode
+        end
+        if src then
+            local effects = src.effectList
+            while effects do
+                if effects.data then
+                    local effect = effects.data
+                    if effect:isInstanceOfType(ni.type.NiLight) then -- only light or point
+                        local affects = effect.affectedNodes
+                        while affects do
+                            if affects.data then
+                                self.logger:trace("%s", affects.data)
+                            end
+                            affects = affects.next
+                        end
+
+                    end
+                end
+                effects = effects.next
+            end
+        end
+        --]]
+
 
         -- remove rotation, but including race scale
         if object.race and object.race.height and object.race.weight then
@@ -892,7 +919,9 @@ function this.Deactivate(self, params)
     if self.root then
         self.logger:debug("[Deactivate] Inspector")
 
-        mesh.DetachDynamicEffect(self.root)
+        -- If reference is cloned, it has a dynamic effect on it, so it is detached recursively.
+        -- Dynamic effect is cleaned up as the cell is unloaded without detaching it, but until then it seems to remain as an affected object.
+        mesh.DetachDynamicEffect(self.root, true)
 
         local camera = GetCamera(self.lighting)
         if camera then
