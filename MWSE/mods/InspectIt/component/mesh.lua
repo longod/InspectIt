@@ -321,6 +321,7 @@ function this.DetachDynamicEffect(node, recursive)
     if recursive and node.children then
         for _, child in ipairs(node.children) do
             if child then
+                ---@cast child niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
                 this.DetachDynamicEffect(child, recursive)
             end
         end

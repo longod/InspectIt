@@ -311,7 +311,7 @@ function this.SwitchAnotherLook(self)
                 rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
                 self.another.rotation = self.baseRotation:copy():transpose() * rot:copy()
 
-                -- TODO apply race width, height scaling if npc base
+                -- TODO apply race width, height scaling if need
                 self.another:updateEffects()
                 self.another:update()
 
@@ -350,7 +350,9 @@ function this.SwitchAnotherLook(self)
             self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
 
-            -- TODO notify disabling mirroring option
+            -- notify disabling mirroring option
+            local payload = { another = self.anotherLook } ---@type ChangedAnotherLookEventData
+            event.trigger(settings.changedAnotherLookEventName, payload)
         end
 
         if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
@@ -516,10 +518,13 @@ function this.SwitchLighting(self)
     end
 end
 
-
 function this.ToggleMirroring(self)
-    local model = self.original -- FIXME for another
-    if self.object and model then
+    local model = self.original
+    if self.object and self.object.isLeftPart and model then
+        if self.anotherLook then
+            self.logger:warn("No mirroring is necessary.")
+            return
+        end
         local after = false
         if mesh.CanMirror(self.object) then
             self.logger:debug("Mirror the left part")
@@ -671,7 +676,7 @@ function this.Activate(self, params)
         -- This clone also seems to retarget skinInstance.bones and skinInstance.root by deep copying.
         -- So, retargeting like bodypart is not necessary.
 
-        -- TODO reset animation or switching another
+        -- TODO reset animation or switching another, if need
 
         -- TODO test: copy base idle pose, but left parts resetted. skin is wired?
         --[[

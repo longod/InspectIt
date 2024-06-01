@@ -93,7 +93,7 @@ end
 ---@return niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode?
 local function FindReferenceNode(params)
     -- only npc
-    -- allow creature?
+    -- TODO allow creature?
     if params.reference and params.object.objectType == tes3.objectType.npc then
         return params.reference.sceneNode
     end

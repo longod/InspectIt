@@ -6,6 +6,7 @@ local helpLayerMenu = tes3ui.registerID("InspectIt:MenuInspectionDescription")
 
 ---@class Guide : IController
 ---@field object tes3activator|tes3alchemy|tes3apparatus|tes3armor|tes3bodyPart|tes3book|tes3clothing|tes3container|tes3containerInstance|tes3creature|tes3creatureInstance|tes3door|tes3ingredient|tes3leveledCreature|tes3leveledItem|tes3light|tes3lockpick|tes3misc|tes3npc|tes3npcInstance|tes3probe|tes3repairTool|tes3static|tes3weapon?
+---@field changedAnotherLookCallback fun(e:ChangedAnotherLookEventData)?
 local this = {}
 setmetatable(this, { __index = base })
 
@@ -68,7 +69,6 @@ local function OnEnterFrame(e)
     end
 end
 
-
 ---@param self Guide
 function this.Destroy(self)
     self.object = nil
@@ -83,9 +83,12 @@ function this.Destroy(self)
     if event.isRegistered(tes3.event.enterFrame, OnEnterFrame) then
         event.unregister(tes3.event.enterFrame, OnEnterFrame)
     end
+    if self.changedAnotherLookCallback then
+        event.unregister(settings.changedAnotherLookEventName, self.changedAnotherLookCallback)
+        self.changedAnotherLookCallback = nil
+    end
 end
 
----comments
 ---@param parent tes3uiElement
 ---@param text string button text
 ---@param label string label text
@@ -121,7 +124,7 @@ function this.Activate(self, params)
 
     -- This modal menu is a must. If there is not a single modal menu visible on the screen, right-clicking will cause all menus to close and return.
     -- This causes unexpected screen transitions and glitches. Especially in Barter.
-    local menu = tes3ui.createMenu({ id = settings.guideMenu, dragFrame = false, fixedFrame = true, modal = true })
+    local menu = tes3ui.createMenu({ id = settings.guideMenuID, dragFrame = false, fixedFrame = true, modal = true })
     menu:destroyChildren()
     menu.flowDirection = tes3.flowDirection.topToBottom
     menu.absolutePosAlignX = 1.0 - offset
@@ -163,7 +166,7 @@ function this.Activate(self, params)
         -- mirror the left part
         -- TODO seal when body part
         if config.display.leftPart and self.object.isLeftPart then
-            local button, _, label = CreateButton(block, settings.i18n("guide.leftPart.text"), "placeholder")
+            local button, leftPartBlock, label = CreateButton(block, settings.i18n("guide.leftPart.text"), "placeholder")
             local function FilterChanged()
                 if mesh.CanMirrorBySourceMod(self.object.sourceMod) == false then
                     button.disabled = true
@@ -184,6 +187,17 @@ function this.Activate(self, params)
                 FilterChanged()
                 event.trigger(settings.toggleMirroringEventName)
             end)
+            -- another look always no need mirroring
+            self.changedAnotherLookCallback = function (e)
+                self.logger:debug("receive changed %s", tostring(e.another))
+                -- Avoid manipulating the same state as FilterChanged(). To make it easier to maintain consistency.
+                if e.another then
+                    leftPartBlock.visible = false
+                else
+                    leftPartBlock.visible = true
+                end
+            end
+            event.register(settings.changedAnotherLookEventName, self.changedAnotherLookCallback)
         end
         -- another/activate
         if params.another.type ~= nil then

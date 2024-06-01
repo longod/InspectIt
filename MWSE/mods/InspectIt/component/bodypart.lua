@@ -38,94 +38,6 @@ local sockets = {
     [tes3.activeBodyPart.tail]          = { name = "Tail" },
 }
 
----@deprecated
----@param bodypart BodyPart
----@param root niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
-function  this.SetBodyPart(bodypart, root)
-    local part = bodypart.part
-    local socket = sockets[bodypart.type]
-    if not socket then
-        logger:error("Not find activeBodyPart %d, %s", bodypart.type, bodypart.part.id)
-        return
-    end
-    logger:debug("Load bodypart mesh : %s", part.mesh)
-    if not tes3.getFileExists(string.format("Meshes\\%s", part.mesh)) then
-        logger:error("Not exist mesh: %s", part.mesh)
-        return
-    end
-    local model = tes3.loadMesh(part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-
-    local to = root:getObjectByName(socket.name) --[[@as niNode]]
-    if not to then
-        logger:error("Not find to attach to %s", socket.name)
-        return
-    end
-
-    local opposite = nil ---@type string?
-    if socket.isLeft ~=nil then
-        opposite = "tri " .. ((socket.isLeft == true) and "right" or "left")
-    end
-
-    -- skin parent node
-    local skinNode = nil ---@type niNode?
-
-    -- FIXME It's not exact emulation.
-    mesh.foreach(model, function(node, _)
-        if node:isInstanceOfType(ni.type.NiTriShape) then
-            if opposite and node.name and node.name:lower():startswith(opposite) then
-                -- ignore opposite part
-                logger:trace("%s ignore by %s", node.name, tostring(opposite))
-                return
-            end
-            if node.skinInstance then
-                if not skinNode then
-                    skinNode = niNode.new()
-                    skinNode.name = socket.name
-                end
-                skinNode:attachChild(node)
-                for index, bone in ipairs(node.skinInstance.bones) do
-                    node.skinInstance.bones[index] = root:getObjectByName(bone.name)
-                end
-                node.skinInstance.root = skinNode
-            else
-                --  transofrm is keep?
-
-                -- In the case of vanilla, this seems to be fine without it because it is used as light sources...
-                local offsetNode = model:getObjectByName("BoneOffset")
-                if offsetNode then
-                    logger:trace("BoneOffset: %s", offsetNode.translation)
-                    node.translation = offsetNode.translation:copy() -- copy to trishape? parent node?
-                end
-
-                -- resolve left
-                if socket.isLeft == true then
-                    -- non uniform scale
-                    local mirror = tes3matrix33.new(
-                        -1, 0, 0,
-                        0, 1, 0,
-                        0, 0, 1
-                    )
-                    -- need keep original rotation?
-                    local rotation = node.rotation:copy()
-                    --model.rotation = rotation:copy() * mirror:copy()
-                    node.rotation = mirror:copy() * rotation:copy()
-                    -- need transofrm translation?
-                    local t = node.translation:copy()
-                    node.translation = mirror:copy() * t:copy()
-                end
-
-                to:attachChild(node)
-            end
-        end
-    end)
-
-    -- Skins should be grouped under the root.
-    if skinNode then
-        root:attachChild(skinNode)
-    end
-
-end
-
 ---@param bodypart BodyPart
 ---@param root niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode
 function this.BuildBodyPart(bodypart, root)
@@ -160,7 +72,7 @@ function this.BuildBodyPart(bodypart, root)
     if skeleton then
         -- place root children
         local parent = niNode.new()
-        parent.name = socket.name -- TODO skirt is skirt
+        parent.name = socket.name -- skirt name is "Skirt", but ok
         root:attachChild(parent)
         to.parent:detachChild(to)
 

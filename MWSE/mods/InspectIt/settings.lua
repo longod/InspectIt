@@ -8,10 +8,14 @@ this.guideMenuID = tes3ui.registerID(this.guideMenu)
 this.returnButtonName = "InspectIt:ReturnButton"
 this.returnEventName = "InspectIt:ReturnEvent"
 this.switchAnotherLookEventName = "InspectIt:SwitchAnotherLookEvent"
+this.changedAnotherLookEventName = "InspectIt:ChangedAnotherLookEvent"
 this.switchLightingEventName = "InspectIt:SwitchLightingEvent"
 this.toggleMirroringEventName = "InspectIt:ToggleMirroringEvent"
 this.resetPoseEventName = "InspectIt:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectIt")
+
+---@class ChangedAnotherLookEventData
+---@field another boolean
 
 ---@return boolean
 function this.OnOtherMenu()
