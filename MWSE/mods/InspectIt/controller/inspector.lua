@@ -933,7 +933,8 @@ function this.Deactivate(self, params)
 
         -- If reference is cloned, it has a dynamic effect on it, so it is detached recursively.
         -- Dynamic effect is cleaned up as the cell is unloaded without detaching it, but until then it seems to remain as an affected object.
-        mesh.DetachDynamicEffect(self.root, true)
+        -- FIXME It seems to be a rare crash even after solving linkedlist detaching
+        -- mesh.DetachDynamicEffect(self.root, true)
 
         local camera = GetCamera(self.lighting)
         if camera then
@@ -959,7 +960,6 @@ function this.Deactivate(self, params)
         end
     end
     self.root = nil
-
     self.baseModel.root = nil
     self.baseModel.bounds = nil
     self.anotherModel.root = nil

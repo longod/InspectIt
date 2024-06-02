@@ -154,10 +154,10 @@ end
 
 ---@param menuExit boolean
 local function LeaveInspection(menuExit)
-    logger:info("Leave Inspection")
     for _, controller in ipairs(controllers) do
         controller:Deactivate({ menuExit = menuExit })
     end
+    logger:info("Leave Inspection")
 end
 
 ---@class EnterParams
