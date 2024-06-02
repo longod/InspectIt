@@ -14,6 +14,24 @@ this.toggleMirroringEventName = "InspectIt:ToggleMirroringEvent"
 this.resetPoseEventName = "InspectIt:ResetPoseEvent"
 this.i18n = mwse.loadTranslations("InspectIt")
 
+---@class BodyPart
+---@field type tes3.activeBodyPart
+---@field part tes3bodyPart
+
+---@class BodyPartData
+---@field parts BodyPart[]
+
+---@class WeaponSheathingData
+---@field path string
+
+---@class BookData
+---@field type tes3.bookType
+---@field text string
+
+---@class AnotherLookData
+---@field type AnotherLookType?
+---@field data BodyPartData|WeaponSheathingData|BookData?
+
 ---@class ChangedAnotherLookEventData
 ---@field another boolean
 

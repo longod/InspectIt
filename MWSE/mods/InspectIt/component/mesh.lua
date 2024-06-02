@@ -391,7 +391,7 @@ end
 ---@return string
 function this.Dump(root)
     if not config.development.experimental then
-        return ""
+        return "Enable experimental to dump the scene graph."
     end
     -- TODO json format
     local str = {}

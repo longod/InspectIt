@@ -15,6 +15,10 @@ local frictionTranslation = 0.00001     -- Attenuation with respect to velocity
 local resistanceTranslation = 9.0   -- Attenuation with respect to time
 local fittingRatio = 0.5 -- Ratio to fit the screen
 
+---@class ModelData
+---@field root niNode?
+---@field bounds tes3boundingBox?
+
 ---@class Inspector : IController
 ---@field root niNode?
 ---@field pivot niNode?
@@ -32,10 +36,8 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 ---@field zoomEnd number
 ---@field zoomTime number
 ---@field zoomMax number
----@field original niNode?
----@field originalBounds tes3boundingBox?
----@field another niNode?
----@field anotherBounds tes3boundingBox?
+---@field baseModel ModelData
+---@field anotherModel ModelData
 ---@field anotherData? AnotherLookData
 ---@field anotherLook boolean
 ---@field lighting LightingType
@@ -58,15 +60,15 @@ local defaults = {
     zoomEnd = 1,
     zoomTime = 0,
     zoomMax = 2,
-    original = nil,
-    originalBounds = nil,
-    another = nil,
-    anotherBounds = nil,
     anotherData = nil,
     anotherLook = false,
     lighting = settings.lightingType.Default,
     distance = tes3vector3.new(20, 20, 20),
     mirrored = false,
+    baseModel = {
+    },
+    anotherModel = {
+    },
 }
 
 ---@return Inspector
@@ -275,20 +277,21 @@ end
 function this.SwitchAnotherLook(self)
     self.logger:debug("Switch another look")
     if self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
+        local another = self.anotherModel
 
         if self.anotherData.type == settings.anotherLookType.BodyParts then
-            if not self.another then
+            if not another.root then
 
-                self.another = niNode.new()
                 local data = self.anotherData.data ---@cast data BodyPartData
 
                 -- base
                 self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
-                local root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
-                if not root then
-                    self.logger:error("Failed to load: %s", tes3.player.object.mesh)
+                if not tes3.getFileExists(string.format("Meshes\\%s", tes3.player.object.mesh)) then
+                    self.logger:error("Not exist mesh: %s", tes3.player.object.mesh)
                     return
                 end
+                local root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
+
                 -- remove unnecessary nodes
                 mesh.CleanMesh(root)
 
@@ -297,7 +300,7 @@ function this.SwitchAnotherLook(self)
                 root.scale = 1
                 root:update() -- transform
 
-                self.another = root
+                another.root = root
 
                 local bp = require("InspectIt.component.bodypart")
                 for _, part in ipairs(data.parts) do
@@ -305,49 +308,50 @@ function this.SwitchAnotherLook(self)
                     --p.SetBodyPart(part, root)
                 end
 
-                -- rotate to original object relative
+                -- rotate to base object relative
                 local orientation = ori.GetBodyPartOrientation(self.object)
                 local rot = tes3matrix33.new()
                 rot:fromEulerXYZ(math.rad(orientation.x), math.rad(orientation.y), math.rad(orientation.z))
-                self.another.rotation = self.baseRotation:copy():transpose() * rot:copy()
+                another.root.rotation = self.baseRotation:copy():transpose() * rot:copy()
 
                 -- TODO apply race width, height scaling if need
-                self.another:updateEffects()
-                self.another:update()
+                another.root:updateEffects()
+                another.root:update()
 
-                local bounds = mesh.CalculateBounds(self.another)
-                self.anotherBounds = bounds:copy()
+                local bounds = mesh.CalculateBounds(another.root)
+                another.bounds = bounds
                 local offset =  (bounds.max + bounds.min) * -0.5
                 self.logger:debug("another bounds: %s", bounds)
                 self.logger:debug("another offset: %s", offset)
-                self.logger:trace("%s", mesh.Dump(self.another))
+                self.logger:trace("%s", mesh.Dump(another.root))
             end
 
             if self.anotherLook then
                 self.logger:debug("Body parts to Physical Item")
-                self.pivot:detachChild(self.another)
-                self.pivot:attachChild(self.original)
-                local offset = (self.originalBounds.max + self.originalBounds.min) * -0.5
+                self.pivot:detachChild(self.anotherModel.root)
+                self.pivot:attachChild(self.baseModel.root)
+                local offset = (self.baseModel.bounds.max + self.baseModel.bounds.min) * -0.5
                 self.logger:trace("%s -> %s",self.pivot.translation, offset)
                 self.pivot.translation = offset:copy()
             else
                 self.logger:debug("Physical Item to Body parts")
-                self.pivot:detachChild(self.original)
-                self.pivot:attachChild(self.another)
-                local offset = (self.anotherBounds.max + self.anotherBounds.min) * -0.5
+                self.pivot:detachChild(self.baseModel.root)
+                self.pivot:attachChild(self.anotherModel.root)
+                local offset = (self.anotherModel.bounds.max + self.anotherModel.bounds.min) * -0.5
                 self.logger:trace("%s -> %s",self.pivot.translation, offset)
                 self.pivot.translation = offset:copy()
             end
 
+            self.anotherLook = not self.anotherLook
             -- Rotation is not a problem in the relative orientation.
             -- But if the scales are in similar proportions, relative scales are fine, but if they aren't, I guess they're may be cliped...
             -- So adjust the appropriate scale and zoom amount
-            -- FIXME This doesn't have to be computed for each time, just have double the data.
-            self:AdjustScale(self.lighting, not self.anotherLook)
+            -- This doesn't have to be computed for each time, just have double the data.
+            -- There are also multiple cameras, so the number of cameras increases for the combination.
+            self:AdjustScale(self.lighting, self.anotherLook)
 
             self.pivot:update()
             self.pivot:updateEffects()
-            self.anotherLook = not self.anotherLook
             self:PlaySound(not self.anotherLook)
 
             -- notify disabling mirroring option
@@ -357,24 +361,24 @@ function this.SwitchAnotherLook(self)
 
         if self.anotherData.type == settings.anotherLookType.WeaponSheathing then
 
-            if not self.another then
+            if not another.root then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
                 self.logger:debug("Load weapon sheathing mesh : %s", data.path)
-                self.another = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-                if not self.another  then
-                    self.logger:error("Failed to load %s", data.path)
+                if not tes3.getFileExists(string.format("Meshes\\%s", data.path)) then
+                    self.logger:error("Not exist mesh: %s", data.path)
                     return
                 end
+                another.root = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
             end
 
             if self.anotherLook then
                 self.logger:debug("Sheathed Weapon")
-                self.pivot:detachChild(self.another)
-                self.pivot:attachChild(self.original)
+                self.pivot:detachChild(self.anotherModel.root)
+                self.pivot:attachChild(self.baseModel.root)
             else
                 self.logger:debug("Drawn Weapon")
-                self.pivot:detachChild(self.original)
-                self.pivot:attachChild(self.another)
+                self.pivot:detachChild(self.baseModel.root)
+                self.pivot:attachChild(self.anotherModel.root)
             end
 
 
@@ -462,15 +466,15 @@ function this.AdjustScale(self, lighting, anotherLook)
         -- recalculate base scale, fov changed
         -- but different perspective due to changes in angle of view will occur.
         local cameraData = camera.cameraData
-        local bounds = self.originalBounds
+        local bounds = self.baseModel.bounds
         if anotherLook then
-            bounds = self.anotherBounds
+            bounds = self.anotherModel.bounds
         end
         if bounds then
             local baseScale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, self.distance.y, fovX, fittingRatio)
             self.baseScale = baseScale
 
-            self.zoomMax = self:CalculateZoomMax(bounds, self.distance.y ,cameraData.nearPlaneDistance)
+            self.zoomMax = self:CalculateZoomMax(bounds, self.distance.y, cameraData.nearPlaneDistance)
 
             -- rescale limit
             -- Or always use the camera with the widest field of view of those you plan to use.
@@ -519,7 +523,7 @@ function this.SwitchLighting(self)
 end
 
 function this.ToggleMirroring(self)
-    local model = self.original
+    local model = self.baseModel.root
     if self.object and self.object.isLeftPart and model then
         if self.anotherLook then
             self.logger:warn("No mirroring is necessary.")
@@ -534,7 +538,7 @@ function this.ToggleMirroring(self)
                 0, -1, 0,
                 0, 0, 1
             )
-            model.rotation = mirror:copy() -- overewrite, didnt has original rotation
+            model.rotation = mirror:copy()
             after = true
         else
             self.logger:debug("Normal the left part")
@@ -752,15 +756,14 @@ function this.Activate(self, params)
         end
 
     else
+        self.logger:debug("Load mesh : %s", object.mesh)
         if not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
             self.logger:error("Not exist mesh: %s", object.mesh)
             return
         end
-
-        self.logger:debug("Load mesh : %s", object.mesh)
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-        -- TODO reset rotation?
-
+        -- reset
+        model:clearTransforms()
     end
 
     -- clean
@@ -781,8 +784,7 @@ function this.Activate(self, params)
             0, -1, 0,
             0, 0, 1
         )
-        local rotation = model.rotation:copy()
-        model.rotation = mirror:copy() * rotation:copy()
+        model.rotation = mirror:copy()
         backface = true -- must
         self.mirrored = true
     end
@@ -848,10 +850,10 @@ function this.Activate(self, params)
 
     self.root = root
     self.pivot = pivot
-    self.original = model
-    self.originalBounds = bounds:copy()
-    self.anotherBounds = bounds:copy() -- later
-    self.another = nil
+    self.baseModel.root = model
+    self.baseModel.bounds = bounds:copy()
+    self.anotherModel.bounds = bounds:copy() -- later
+    self.anotherModel.root = nil
     self.anotherLook = false
     -- self.lighting = settings.lightingType.Default -- Probably more convenient to carry over previous values
 
@@ -953,10 +955,11 @@ function this.Deactivate(self, params)
     end
     self.pivot = nil
     self.root = nil
-    self.original = nil
-    self.originalBounds = nil
-    self.another = nil
-    self.anotherBounds = nil
+
+    self.baseModel.root = nil
+    self.baseModel.bounds = nil
+    self.anotherModel.root = nil
+    self.anotherModel.bounds = nil
     self.anotherData = nil
     self.object = nil
 end
@@ -965,8 +968,10 @@ end
 function this.Reset(self)
     self.pivot = nil
     self.root = nil
-    self.original = nil
-    self.another = nil
+    self.baseModel.root = nil
+    self.baseModel.bounds = nil
+    self.anotherModel.root = nil
+    self.anotherModel.bounds = nil
     self.anotherData = nil
     self.object = nil
     self.lighting = settings.lightingType.Default
