@@ -21,7 +21,6 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 
 ---@class Inspector : IController
 ---@field root niNode?
----@field pivot niNode?
 ---@field enterFrameCallback fun(e : enterFrameEventData)?
 ---@field activateCallback fun(e : activateEventData)?
 ---@field switchAnotherLookCallback fun()?
@@ -50,7 +49,6 @@ setmetatable(this, { __index = base })
 ---@type Inspector
 local defaults = {
     root = nil,
-    pivot = nil,
     enterFrame = nil,
     angularVelocity = tes3vector3.new(0, 0, 0),
     velocity = tes3vector3.new(0, 0, 0),
@@ -140,7 +138,7 @@ function this.SetScale(self, scale)
     self.root.scale = newScale
     -- self.logger:trace("Zoom %f -> %f", prev, scale)
 
-    mesh.RescaleParticle(self.pivot, prev / newScale)
+    mesh.RescaleParticle(self.root, prev / newScale)
 end
 
 
@@ -324,22 +322,17 @@ function this.SwitchAnotherLook(self)
                 self.logger:debug("another bounds: %s", bounds)
                 self.logger:debug("another offset: %s", offset)
                 self.logger:trace("%s", mesh.Dump(another.root))
+                another.root.translation = offset:copy()
             end
 
             if self.anotherLook then
                 self.logger:debug("Body parts to Physical Item")
-                self.pivot:detachChild(self.anotherModel.root)
-                self.pivot:attachChild(self.baseModel.root)
-                local offset = (self.baseModel.bounds.max + self.baseModel.bounds.min) * -0.5
-                self.logger:trace("%s -> %s",self.pivot.translation, offset)
-                self.pivot.translation = offset:copy()
+                self.root:detachChild(self.anotherModel.root)
+                self.root:attachChild(self.baseModel.root)
             else
                 self.logger:debug("Physical Item to Body parts")
-                self.pivot:detachChild(self.baseModel.root)
-                self.pivot:attachChild(self.anotherModel.root)
-                local offset = (self.anotherModel.bounds.max + self.anotherModel.bounds.min) * -0.5
-                self.logger:trace("%s -> %s",self.pivot.translation, offset)
-                self.pivot.translation = offset:copy()
+                self.root:detachChild(self.baseModel.root)
+                self.root:attachChild(self.anotherModel.root)
             end
 
             self.anotherLook = not self.anotherLook
@@ -350,8 +343,7 @@ function this.SwitchAnotherLook(self)
             -- There are also multiple cameras, so the number of cameras increases for the combination.
             self:AdjustScale(self.lighting, self.anotherLook)
 
-            self.pivot:update()
-            self.pivot:updateEffects()
+            self.root:update()
             self:PlaySound(not self.anotherLook)
 
             -- notify disabling mirroring option
@@ -369,27 +361,28 @@ function this.SwitchAnotherLook(self)
                     return
                 end
                 another.root = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+
+                -- use base offet, no adjust centering
+                local offset = (self.baseModel.bounds.max + self.baseModel.bounds.min) * -0.5
+                another.root.translation = offset:copy()
             end
 
             if self.anotherLook then
                 self.logger:debug("Sheathed Weapon")
-                self.pivot:detachChild(self.anotherModel.root)
-                self.pivot:attachChild(self.baseModel.root)
+                self.root:detachChild(self.anotherModel.root)
+                self.root:attachChild(self.baseModel.root)
             else
                 self.logger:debug("Drawn Weapon")
-                self.pivot:detachChild(self.baseModel.root)
-                self.pivot:attachChild(self.anotherModel.root)
+                self.root:detachChild(self.baseModel.root)
+                self.root:attachChild(self.anotherModel.root)
             end
-
 
             self.anotherLook = not self.anotherLook
 
             -- apply same scale for particle
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self:SetScale(scale)
-            -- just swap, no adjust centering
-            self.pivot:update()
-            self.pivot:updateEffects()
+            self.root:update()
             self:PlaySound(self.anotherLook)
         end
 
@@ -513,7 +506,25 @@ function this.SwitchLighting(self)
         self:AdjustScale(lighting, self.anotherLook)
 
         prev.cameraRoot:detachChild(self.root)
-        next.cameraRoot:attachChild(self.root) -- lighting == settings.lightingType.Constant
+
+        if lighting == settings.lightingType.Constant then
+            -- Add to the top of the list. Unfortunately, it is not rendered first.
+            --[[
+            local children = {}
+            for _, child in ipairs(next.cameraRoot.children) do
+                table.insert(children, child)
+            end
+            next.cameraRoot:detachAllChildren()
+            next.cameraRoot:attachChild(self.root, true)
+            for _, child in ipairs(children) do
+                next.cameraRoot:attachChild(child)
+            end
+            --]]
+            next.cameraRoot:attachChild(self.root)
+        else
+            next.cameraRoot:attachChild(self.root)
+        end
+
         prev.cameraRoot:update()
         next.cameraRoot:update()
         self.lighting = lighting
@@ -547,24 +558,22 @@ function this.ToggleMirroring(self)
             model.rotation = identity:copy()
             after = false
         end
-
         -- There is a situation where changing the sourceMod from config and changing the ID with the button results in the same state.
         if self.mirrored ~= after then
             -- adjust centering offset, simply flip Y
             -- no need zoom re-fitting. center point changes, but the size should remain the same.
-            self.pivot.translation = tes3vector3.new(self.pivot.translation.x, -self.pivot.translation.y,
-                self.pivot.translation.z)
-            self.logger:debug("Flipped offset")
+            model.translation = tes3vector3.new(model.translation.x, -model.translation.y, model.translation.z)
+            self.logger:debug("Flipped offset %s", model.translation)
         end
         self.mirrored = after
 
         -- enabled no cull
         -- currently armor, cloth are always no cull
-        -- local props = self.pivot:getProperty(ni.propertyType.stencil)
+        -- local props = self.root:getProperty(ni.propertyType.stencil)
         -- if props then
         --     props.drawMode = 3 -- DRAW_BOTH
         -- end
-        self.pivot:update()
+        self.root:update()
     end
 end
 
@@ -585,41 +594,37 @@ end
 
 ---@param offset number
 ---@return niNode
----@return niNode
 local function SetupNode(offset)
 
     -- doesnt work...
     -- FIXME Menu camera does not draw first with attachment at the top and sorting off.
     ---@diagnostic disable-next-line: undefined-global
-    -- local pivot = niSortAdjustNode.new()
-    -- pivot.sortingMode = 1 -- ni.sortAdjustMode.off
+    -- local root = niSortAdjustNode.new()
+    -- root.sortingMode = 1 -- ni.sortAdjustMode.off
 
-    local pivot = niNode.new() -- pivot node
-    pivot.name = "InspectIt:Pivot"
+    local root = niNode.new()
+    root.name = "InspectIt:Root"
+    root.translation = tes3vector3.new(0, offset, 0)
+    root.appCulled = false
+
     -- If transparency is included, it may not work unless it is specified on a per material.
     local zBufferProperty = niZBufferProperty.new()
     zBufferProperty.name = "InspectIt:DepthTestWrite"
     zBufferProperty:setFlag(true, 0) -- test
     zBufferProperty:setFlag(true, 1) -- write
-    pivot:attachProperty(zBufferProperty)
+    root:attachProperty(zBufferProperty)
     -- No culling on the back face because the geometry of the part to be placed on the ground does not exist.
     local stencilProperty = niStencilProperty.new()
-    stencilProperty.name = "InspectIt:NoCull"
+    stencilProperty.name = "InspectIt:CullFace"
     stencilProperty.drawMode = 3 -- DRAW_BOTH
-    pivot:attachProperty(stencilProperty)
+    root:attachProperty(stencilProperty)
     local vertexColorProperty = niVertexColorProperty.new()
     vertexColorProperty.name = "InspectIt:emiAmbDif"
     vertexColorProperty.lighting = 1 -- ni.lightingMode.emiAmbDif
     vertexColorProperty.source = 2 -- ni.sourceVertexMode.ambDiff
-    pivot:attachProperty(vertexColorProperty)
-    pivot.appCulled = false
+    root:attachProperty(vertexColorProperty)
 
-    local root = niNode.new()
-    root.name = "InspectIt:Root"
-    root:attachChild(pivot)
-    root.translation = tes3vector3.new(0, offset, 0)
-    root.appCulled = false
-    return root, pivot
+    return root
 end
 
 ---@param self Inspector
@@ -803,9 +808,10 @@ function this.Activate(self, params)
     self.logger:debug("bounds max: %s", bounds.max)
     self.logger:debug("bounds min: %s", bounds.min)
     self.logger:debug("bounds offset: %s", offset)
-    local root, pivot = SetupNode(distance)
-    pivot.translation = offset
-    pivot:attachChild(model)
+    local root = SetupNode(distance)
+    --pivot.translation = offset
+    model.translation = offset
+    root:attachChild(model)
 
     if backface and not self.mirrored then
         -- When there are separate polygons on both sides, such as papers,
@@ -820,7 +826,7 @@ function this.Activate(self, params)
     end
 
     if not backface then
-        local props = pivot:getProperty(ni.propertyType.stencil)
+        local props = root:getProperty(ni.propertyType.stencil)
         if props then
             props.drawMode = 0-- DRAW_CCW_OR_BOTH
         end
@@ -849,7 +855,6 @@ function this.Activate(self, params)
     end
 
     self.root = root
-    self.pivot = pivot
     self.baseModel.root = model
     self.baseModel.bounds = bounds:copy()
     self.anotherModel.bounds = bounds:copy() -- later
@@ -953,7 +958,6 @@ function this.Deactivate(self, params)
             self:PlaySound(false)
         end
     end
-    self.pivot = nil
     self.root = nil
 
     self.baseModel.root = nil
@@ -966,7 +970,6 @@ end
 
 ---@param self Inspector
 function this.Reset(self)
-    self.pivot = nil
     self.root = nil
     self.baseModel.root = nil
     self.baseModel.bounds = nil
