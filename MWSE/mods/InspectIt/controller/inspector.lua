@@ -259,7 +259,6 @@ function this.OnEnterFrame(self, e)
         -- updateTime = updateTime  + e.delta
         --self.root:update({ controllers = true })
         self.root:update()
-        self.root:updateEffects()
     end
 end
 
@@ -267,7 +266,7 @@ end
 --- @param e activateEventData
 function this.OnActivate(self, e)
     -- block picking up items
-    self.logger:debug("Block to Activate")
+    self.logger:trace("Block to Activate")
     e.block = true
 end
 
@@ -283,7 +282,7 @@ function this.SwitchAnotherLook(self)
                 local data = self.anotherData.data ---@cast data BodyPartData
 
                 -- base
-                self.logger:debug("Load base mesh : %s", tes3.player.object.mesh)
+                self.logger:debug("Load base mesh: %s", tes3.player.object.mesh)
                 if not tes3.getFileExists(string.format("Meshes\\%s", tes3.player.object.mesh)) then
                     self.logger:error("Not exist mesh: %s", tes3.player.object.mesh)
                     return
@@ -313,7 +312,6 @@ function this.SwitchAnotherLook(self)
                 another.root.rotation = self.baseRotation:copy():transpose() * rot:copy()
 
                 -- TODO apply race width, height scaling if need
-                another.root:updateEffects()
                 another.root:update()
 
                 local bounds = mesh.CalculateBounds(another.root)
@@ -326,11 +324,11 @@ function this.SwitchAnotherLook(self)
             end
 
             if self.anotherLook then
-                self.logger:debug("Body parts to Physical Item")
+                self.logger:debug("Body parts to Item")
                 self.root:detachChild(self.anotherModel.root)
                 self.root:attachChild(self.baseModel.root)
             else
-                self.logger:debug("Physical Item to Body parts")
+                self.logger:debug("Item to Body parts")
                 self.root:detachChild(self.baseModel.root)
                 self.root:attachChild(self.anotherModel.root)
             end
@@ -343,6 +341,7 @@ function this.SwitchAnotherLook(self)
             -- There are also multiple cameras, so the number of cameras increases for the combination.
             self:AdjustScale(self.lighting, self.anotherLook)
 
+            self.root:updateEffects()
             self.root:update()
             self:PlaySound(not self.anotherLook)
 
@@ -355,7 +354,7 @@ function this.SwitchAnotherLook(self)
 
             if not another.root then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
-                self.logger:debug("Load weapon sheathing mesh : %s", data.path)
+                self.logger:debug("Load weapon sheathing mesh: %s", data.path)
                 if not tes3.getFileExists(string.format("Meshes\\%s", data.path)) then
                     self.logger:error("Not exist mesh: %s", data.path)
                     return
@@ -382,6 +381,7 @@ function this.SwitchAnotherLook(self)
             -- apply same scale for particle
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self:SetScale(scale)
+            self.root:updateEffects()
             self.root:update()
             self:PlaySound(self.anotherLook)
         end
@@ -416,13 +416,13 @@ function this.SwitchAnotherLook(self)
                         end
                     end)
             else
+                self.logger:error("Not find book/scroll menu")
                 -- revert
                 if self.root then
                     self.root.flags = bit.band(self.root.flags, bit.bnot(0x1))
                     self.root:update()
                     self.logger:debug("Revert the object visibility")
                 end
-                self.logger:error("Not find book/scroll menu")
             end
         end
     end
@@ -525,7 +525,9 @@ function this.SwitchLighting(self)
             next.cameraRoot:attachChild(self.root)
         end
 
+        prev.cameraRoot:updateEffects()
         prev.cameraRoot:update()
+        next.cameraRoot:updateEffects()
         next.cameraRoot:update()
         self.lighting = lighting
     else
@@ -563,7 +565,7 @@ function this.ToggleMirroring(self)
             -- adjust centering offset, simply flip Y
             -- no need zoom re-fitting. center point changes, but the size should remain the same.
             model.translation = tes3vector3.new(model.translation.x, -model.translation.y, model.translation.z)
-            self.logger:debug("Flipped offset %s", model.translation)
+            self.logger:debug("Flipped offset: %s", model.translation)
         end
         self.mirrored = after
 
@@ -662,7 +664,7 @@ function this.ComputeFittingScale(self, bounds, cameraData, distance, fovX, rati
 
     local scale = screenSize / boundsSize
 
-    self.logger:debug("use fovX: %f, MGE near: %f", fovX, mge.camera.nearRenderDistance)
+    self.logger:debug("fovX: %f, MGE near: %f", fovX, mge.camera.nearRenderDistance)
     self.logger:debug("Camera near: %f, far: %f, fov: %f", cameraData.nearPlaneDistance, cameraData.farPlaneDistance,
         cameraData.fov)
     self.logger:debug("Camera viewport width: %d, height: %d", cameraData.viewportWidth, cameraData.viewportHeight)
@@ -682,44 +684,17 @@ function this.Activate(self, params)
         return
     end
 
-    local model = nil
-    if params.referenceNode then
-        self.logger:debug("Use reference : %s", params.referenceNode)
-        model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-        self.logger:trace("%s", mesh.Dump(model))
-        -- This clone also seems to retarget skinInstance.bones and skinInstance.root by deep copying.
-        -- So, retargeting like bodypart is not necessary.
-
-        -- TODO reset animation or switching another, if need
-
-        -- TODO test: copy base idle pose, but left parts resetted. skin is wired?
-        --[[
-        local mesh = object.mesh
-        self.logger:debug("Load mesh : %s", mesh)
-        local skeleton = tes3.loadMesh(mesh, true):clone()
-        skeleton:update()
-        skeleton = skeleton:getObjectByName("Bip01")
-        foreach(skeleton, function(node)
-            if node:isOfType(ni.type.NiNode) then
-                local dest = model:getObjectByName(node.name)
-                if dest then
-                    dest.translation = node.translation:copy()
-                    dest.rotation = node.rotation:copy()
-                    dest.scale = node.scale
-                end
-            end
-        end)
-        --]]
-
-        -- Examine how the node remains in the effect
-        --[[
+    -- Examine how the node remains in the effect
+    if config.development.experimental then
         local src = tes3.player1stPerson.sceneNode
         if tes3.is3rdPerson() then
             src = tes3.player.sceneNode
         end
         if src then
+            local total = 0
             local effects = src.effectList
             while effects do
+                local pereffect = 0
                 if effects.data then
                     local effect = effects.data
                     if effect:isInstanceOfType(ni.type.NiLight) then -- only light or point
@@ -727,17 +702,29 @@ function this.Activate(self, params)
                         while affects do
                             if affects.data then
                                 self.logger:trace("%s", affects.data)
+                                pereffect = pereffect + 1
                             end
                             affects = affects.next
                         end
-
                     end
+                    self.logger:debug("Affected by %s: %d", effects.data, pereffect)
                 end
                 effects = effects.next
+                total = total + pereffect
             end
+            self.logger:debug("Total Affected: %d", total)
         end
-        --]]
+    end
 
+    local model = nil
+    if params.referenceNode then
+        self.logger:debug("Use reference: %s", params.referenceNode)
+        model = params.referenceNode:clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        self.logger:trace("%s", mesh.Dump(model))
+        -- This clone also seems to retarget skinInstance.bones and skinInstance.root by deep copying.
+        -- So, retargeting like bodypart is not necessary.
+
+        -- TODO reset animation or switching another, if need
 
         -- remove rotation, but including race scale
         if object.race and object.race.height and object.race.weight then
@@ -766,12 +753,13 @@ function this.Activate(self, params)
         end
 
     else
-        self.logger:debug("Load mesh : %s", object.mesh)
+        self.logger:debug("Load mesh: %s", object.mesh)
         if not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
             self.logger:error("Not exist mesh: %s", object.mesh)
             return
         end
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        self.logger:trace("%s", mesh.Dump(model))
         -- reset
         model:clearTransforms()
     end
@@ -803,18 +791,22 @@ function this.Activate(self, params)
 
     local bounds = mesh.CalculateBounds(model)
 
-    self.anotherData = params.another
+    -- initial scaling
+    -- FIXME It does not work correctly while rotating the camera while holding down the tab key during TPV.
+    local camera, fovX = GetCamera(self.lighting)
+    if not camera then
+        self.logger:error("Camera not found")
+        return
+    end
 
     local distance = params.offset
 
     -- centering
     -- FIXME Some creatures appear to be offset off. Should skinning be considered?
     local offset = (bounds.max + bounds.min) * -0.5
-    self.logger:debug("bounds max: %s", bounds.max)
-    self.logger:debug("bounds min: %s", bounds.min)
+    self.logger:debug("bounds: %s", bounds)
     self.logger:debug("bounds offset: %s", offset)
     local root = SetupNode(distance)
-    --pivot.translation = offset
     model.translation = offset
     root:attachChild(model)
 
@@ -826,7 +818,7 @@ function this.Activate(self, params)
         local thickness = math.min(size.x, size.y, size.z)
         if thickness < 1.5 then
             backface = false
-            self.logger:debug("enable culling backface, thickness: %f", thickness)
+            self.logger:debug("Enable culling backface, thickness: %f", thickness)
         end
     end
 
@@ -844,7 +836,7 @@ function this.Activate(self, params)
                 return key
             end
         end
-        return ""
+        return "unknown"
     end
     self.logger:debug("objectType: %s", findKey(object.objectType))
     local orientation = ori.GetOrientation(object, bounds)
@@ -865,15 +857,9 @@ function this.Activate(self, params)
     self.anotherModel.bounds = bounds:copy() -- later
     self.anotherModel.root = nil
     self.anotherLook = false
+    self.anotherData = params.another
     -- self.lighting = settings.lightingType.Default -- Probably more convenient to carry over previous values
 
-    -- initial scaling
-    -- FIXME It does not work correctly while rotating the camera while holding down the tab key during TPV.
-    local camera, fovX = GetCamera(self.lighting)
-    if not camera then
-        self.logger:error("Camera not found")
-        return
-    end
     local cameraRoot = camera.cameraRoot
     local cameraData = camera.cameraData
     local scale, distanceWidth, distanceHeight = self:ComputeFittingScale(bounds, cameraData, distance, fovX, fittingRatio)
@@ -892,10 +878,9 @@ function this.Activate(self, params)
 
     self.zoomMax = self:CalculateZoomMax(bounds, distance,cameraData.nearPlaneDistance)
 
-
     cameraRoot:attachChild(root)
-    cameraRoot:update()
     cameraRoot:updateEffects()
+    cameraRoot:update()
 
     --- subscribe events
     self.enterFrameCallback = function(e)
@@ -939,12 +924,15 @@ function this.Deactivate(self, params)
         -- If reference is cloned, it has a dynamic effect on it, so it is detached recursively.
         -- Dynamic effect is cleaned up as the cell is unloaded without detaching it, but until then it seems to remain as an affected object.
         -- FIXME It seems to be a rare crash even after solving linkedlist detaching
-        -- mesh.DetachDynamicEffect(self.root, true)
+        mesh.DetachDynamicEffect(self.root, true)
+        self.root:updateEffects()
 
         local camera = GetCamera(self.lighting)
         if camera then
             local cameraRoot = camera.cameraRoot
             cameraRoot:detachChild(self.root)
+            cameraRoot:updateEffects()
+            cameraRoot:update()
         end
 
         event.unregister(tes3.event.enterFrame, self.enterFrameCallback)

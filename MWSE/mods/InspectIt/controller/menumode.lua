@@ -29,7 +29,7 @@ function this.Activate(self, params)
             self.entered = true
         end
     else
-        self.logger:warn("[Activate] Previous deactivation is not successful?")
+        self.logger:error("[Activate] Previous deactivation is not successful?")
     end
 end
 

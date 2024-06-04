@@ -81,7 +81,7 @@ local function FindAnotherLook(object)
                 return settings.anotherLookType.Book, data
             end
         else
-            logger:debug("%s, book or scroll has a sciprt: %s", object.name, tostring(object.script.id))
+            logger:debug("%s, book or scroll has a sciprt: %s", object.id, tostring(object.script.id))
             tes3.messageBox(settings.i18n("messageBox.bookRequirement.text", { name = object.name }))
         end
     end
@@ -171,14 +171,6 @@ local function EnterInspection(params)
     if not params.object then
         return false
     end
-    local can = CanInspection(params.object)
-    if not can then
-        logger:info("Unsupported Inspection: %s", params.object.name)
-        if can == false then
-            tes3.messageBox(settings.i18n("messageBox.unsupport.text"))
-        end
-        return false
-    end
     -- when picking a item
     local cursor = tes3ui.findHelpLayerMenu("CursorIcon")
     if cursor then
@@ -186,6 +178,15 @@ local function EnterInspection(params)
         if tile then
             return false
         end
+    end
+
+    local can = CanInspection(params.object)
+    if not can then
+        logger:info("Unsupported Inspection: %s", params.object.name)
+        if can == false then
+            tes3.messageBox(settings.i18n("messageBox.unsupport.text"))
+        end
+        return false
     end
 
     local name = params.object.name

@@ -164,7 +164,6 @@ function this.Activate(self, params)
         block:createLabel({ text = settings.i18n("guide.zoom.text") })
 
         -- mirror the left part
-        -- TODO seal when body part
         if config.display.leftPart and self.object.isLeftPart then
             local button, leftPartBlock, label = CreateButton(block, settings.i18n("guide.leftPart.text"), "placeholder")
             local function FilterChanged()
@@ -183,13 +182,12 @@ function this.Activate(self, params)
             FilterChanged()
             button:register(tes3.uiEvent.mouseClick, function(e)
                 local after = mesh.ToggleMirror(self.object.id)
-                self.logger:info("%s left part filter id: %s, plugin: %s", (after and "Add" or "Remove"), self.object.id, self.object.sourceMod)
+                self.logger:info("%s left part filter id: %s, plugin: %s", (after and "Add" or "Remove"), self.object.id:lower(), self.object.sourceMod)
                 FilterChanged()
                 event.trigger(settings.toggleMirroringEventName)
             end)
             -- another look always no need mirroring
             self.changedAnotherLookCallback = function (e)
-                self.logger:debug("receive changed %s", tostring(e.another))
                 -- Avoid manipulating the same state as FilterChanged(). To make it easier to maintain consistency.
                 if e.another then
                     leftPartBlock.visible = false

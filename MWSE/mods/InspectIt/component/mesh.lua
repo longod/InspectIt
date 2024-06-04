@@ -65,7 +65,7 @@ end
 function this.GetArmorSameMeshAsRightPart()
     if not sameArmor then
         sameArmor = CollectSameMeshAsRightPart(tes3.objectType.armor)
-        logger:debug("same mesh armor: %d", table.size(sameArmor))
+        logger:debug("same mesh armor count: %d", table.size(sameArmor))
     end
     return sameArmor
 end
@@ -74,7 +74,7 @@ end
 function this.GetClothingSameMeshAsRightPart()
     if not sameClothing then
         sameClothing = CollectSameMeshAsRightPart(tes3.objectType.clothing)
-        logger:debug("same mesh clothing: %d", table.size(sameClothing))
+        logger:debug("same mesh clothing count: %d", table.size(sameClothing))
     end
     return sameClothing
 end
@@ -134,8 +134,7 @@ function this.CalculateBounds(model)
         local backup = bounds:copy()
         -- vertex only bounds
         -- more tight bounds, but possible too heavy.
-        logger:debug("prev bounds max: %s", bounds.max)
-        logger:debug("prev bounds min: %s", bounds.min)
+        logger:debug("MWSE bounds: %s", bounds)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
         local accept = false
@@ -144,7 +143,7 @@ function this.CalculateBounds(model)
                 ---@cast node niTriShape
                 local data = node.data
                 if data.vertexCount == 0 then
-                    logger:warn("niTriShape has was no geometry: %s", node.name)
+                    logger:warn("NiTriShape has no geometry: %s", node.name)
                     return
                 end
 
@@ -178,9 +177,9 @@ function this.CalculateBounds(model)
                 threshold = threshold * threshold
                 -- boundingbox is some distance away from bounding sphere.
                 if DistanceSquared(center, max) > threshold or DistanceSquared(center, min) > threshold then
-                    logger:debug("use bounding sphere: %s", tostring(node.name))
-                    logger:debug("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
-                    logger:debug("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())
+                    logger:debug("Use bounding sphere: %s", tostring(node.name))
+                    logger:trace("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
+                    logger:trace("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())
                     local smax = center:copy() + radius
                     local smin = center:copy() - radius
                     max = smax
@@ -202,7 +201,7 @@ function this.CalculateBounds(model)
         if not accept then
             bounds = backup
             -- original may also be incorrect?
-            logger:warn("Since there was no geometry, MWSE bounds will be used.")
+            logger:warn("There was no geometry, MWSE bounds will be used.")
         end
     end
 
@@ -244,22 +243,22 @@ function this.CleanMesh(model)
         -- if not isCreature then
         if bit.band(node.flags, 0x1) == 0x1 then -- invisible
             remove = true
-            logger:trace("remove by visibility")
+            logger:trace("Remove by visibility")
         end
         -- end
         if node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
             remove = true
-            logger:trace("remove by collision")
+            logger:trace("Remove by collision")
         elseif node:isOfType(ni.type.NiTriShape) then
             if node.name then
                 local n = node.name:lower()
                 -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_1.htm
                 if n:startswith("tri shadow") then -- shadow
                     remove = true
-                    logger:trace("remove by tri shadow")
+                    logger:trace("Remove by Tri Shadow")
                 elseif n:startswith("tri bip") then -- dummy
                     remove = true
-                    logger:trace("remove by tri bip")
+                    logger:trace("Remove by Tri Bip")
                 end
             end
         end
@@ -334,16 +333,31 @@ end
 local function DumpProperty(prop)
     ---@type { [string] : fun() :string? }
     local func = {
-        ["NiAlphaProperty"] = function() end,
+        ["NiAlphaProperty"] = function()
+            ---@cast prop niAlphaProperty
+            return string.format("alphaTestRef: %f", prop.alphaTestRef)
+        end,
         ["NiDitherProperty"] = function() end,
         ["NiFogProperty"] = function() end,
-        ["NiMaterialProperty"] = function()end,
-        ["NiRendererSpecificProperty"] = function()end,
-        ["NiShadeProperty"] = function()end,
+        ["NiMaterialProperty"] = function()
+            ---@cast prop niMaterialProperty
+            return string.format("alpha: %f, ambient: %s, diffuse: %s, emissive: %s, shininess: %f, specular: %s",
+                prop.alpha,
+                prop.ambient:toVector3(),
+                prop.diffuse:toVector3(),
+                prop.emissive:toVector3(),
+                prop.shininess,
+                prop.specular:toVector3())
+        end,
+        ["NiRendererSpecificProperty"] = function() end,
+        ["NiShadeProperty"] = function() end,
         ["NiSpecularProperty"] = function()end,
         ["NiStencilProperty"] = function()end,
         ["NiTexturingProperty"] = function()end,
-        ["NiVertexColorProperty"] = function()end,
+        ["NiVertexColorProperty"] = function()
+            ---@cast prop  niVertexColorProperty
+            return string.format("lighting: %d, source: %d", prop.lighting, prop.source)
+        end,
         ["NiWireframeProperty"] = function()end,
         ["NiZBufferProperty"] = function()end,
     }
@@ -364,16 +378,16 @@ local function DumpDynamicEffect(effect)
         ["NiDirectionalLight"] = function()
         end,
         ["NiPointLight"] = function()
-            local affected = {}
-            ---@cast effect niPointLight
-            local node = effect.affectedNodes
-            while node do
-                if node.data then
-                    table.insert(affected, node.data.name)
-                end
-                node = node.next
-            end
-            return table.concat(affected)
+            -- local affected = {}
+            -- ---@cast effect niPointLight
+            -- local node = effect.affectedNodes
+            -- while node do
+            --     if node.data then
+            --         table.insert(affected, node.data.name)
+            --     end
+            --     node = node.next
+            -- end
+            -- return table.concat(affected)
         end,
         ["NiSpotLight"] = function()
         end,
@@ -411,7 +425,7 @@ function this.Dump(root)
                     out = out .. "\n" .. indent .. string.format("  prop: %s", props.data.RTTI.name)
                     local p = DumpProperty(props.data)
                     if p then
-                        out = out .. "\n" .. p
+                        out = out .. "\n" .. p .. string.format(" propertyFlags: %d", props.data.propertyFlags)
                     end
                     props = props.next
                 end

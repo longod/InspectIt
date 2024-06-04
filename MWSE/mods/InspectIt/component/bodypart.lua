@@ -44,7 +44,7 @@ function this.BuildBodyPart(bodypart, root)
     local part = bodypart.part
     local socket = sockets[bodypart.type]
     if not socket then
-        logger:error("Not find activeBodyPart %d, %s", bodypart.type, bodypart.part.id)
+        logger:error("Failed to find activeBodyPart %d: %s", bodypart.type, bodypart.part.id)
         return
     end
     logger:debug("Load bodypart mesh: %s", part.mesh)
@@ -52,17 +52,18 @@ function this.BuildBodyPart(bodypart, root)
         logger:error("Not exist mesh: %s", part.mesh)
         return
     end
-    -- cache remaining skin instance?
-    local model = tes3.loadMesh(part.mesh, false):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
-    -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
-    -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
-    logger:trace("%s", mesh.Dump(model))
 
     local to = root:getObjectByName(socket.name) --[[@as niNode]]
     if not to then
-        logger:error("Not find to attach to %s", socket.name)
+        logger:error("Failed to find to attach to %s", socket.name)
         return
     end
+
+    -- cache remaining skin instance?
+    local model = tes3.loadMesh(part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
+    -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
+    logger:trace("%s", mesh.Dump(model))
 
     -- case-senstive?
     local bip01 = model:getObjectByName("Bip01") --[[@as niNode]]
@@ -72,25 +73,23 @@ function this.BuildBodyPart(bodypart, root)
     if skeleton then
         -- place root children
         local parent = niNode.new()
-        parent.name = socket.name -- skirt name is "Skirt", but ok
+        parent.name = socket.name -- sometime, skirt name is "Skirt", but ok
         root:attachChild(parent)
         to.parent:detachChild(to)
 
         local prefix = "tri " .. socket.name:lower()
-        logger:trace("trishape prefix: %s", prefix)
+        logger:trace("NiTriShape prefix: %s", prefix)
         mesh.foreach(model, function(node, _)
             if node:isInstanceOfType(ni.type.NiTriShape) then
                 if node.name and node.name:lower():startswith(prefix) ~= true then
                     -- ignore opposite part
-                    logger:trace("ignored: %s", node.name)
+                    logger:trace("Ignored: %s", node.name)
                     return
                 end
                 parent:attachChild(node)
                 -- retarget
                 if node.skinInstance then
-                    -- sometime crash..
                     if node.skinInstance.root ~= nil then
-                        --node.skinInstance.root = node.parent
                         node.skinInstance.root = parent
                     end
                     if node.skinInstance.bones ~= nil then
