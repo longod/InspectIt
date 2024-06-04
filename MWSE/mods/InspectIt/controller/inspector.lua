@@ -623,7 +623,12 @@ local function SetupNode(offset)
     vertexColorProperty.lighting = 1 -- ni.lightingMode.emiAmbDif
     vertexColorProperty.source = 2 -- ni.sourceVertexMode.ambDiff
     root:attachProperty(vertexColorProperty)
-
+    local alphaProperty = niAlphaProperty.new()
+    alphaProperty.name = "InspectIt:Opaque"
+    alphaProperty.alphaTestRef = 0
+    alphaProperty.propertyFlags = 236 -- 0x1 enable tranparency, so 0 or player reference's default(236)
+    root:attachProperty(alphaProperty)
+    -- NiMaterialProperty can't be created. If necessary, clone.
     return root
 end
 
