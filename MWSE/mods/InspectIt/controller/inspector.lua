@@ -343,7 +343,7 @@ function this.SwitchAnotherLook(self)
 
             self.root:updateEffects()
             self.root:update()
-            self:PlaySound(not self.anotherLook)
+            self:PlaySound(self.anotherLook)
 
             -- notify disabling mirroring option
             local payload = { another = self.anotherLook } ---@type ChangedAnotherLookEventData
@@ -383,7 +383,7 @@ function this.SwitchAnotherLook(self)
             self:SetScale(scale)
             self.root:updateEffects()
             self.root:update()
-            self:PlaySound(self.anotherLook)
+            self:PlaySound(not self.anotherLook)
         end
 
         if self.anotherData.type == settings.anotherLookType.Book and self.anotherData.data.text then
@@ -923,7 +923,6 @@ function this.Deactivate(self, params)
 
         -- If reference is cloned, it has a dynamic effect on it, so it is detached recursively.
         -- Dynamic effect is cleaned up as the cell is unloaded without detaching it, but until then it seems to remain as an affected object.
-        -- FIXME It seems to be a rare crash even after solving linkedlist detaching
         mesh.DetachDynamicEffect(self.root, true)
         self.root:updateEffects()
 

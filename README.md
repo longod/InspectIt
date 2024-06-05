@@ -9,7 +9,7 @@ This mod allow you to inspect a variety of objects.
 
 ### During Inspection
 - You can rotate, move and zoom an object with your mouse.
-- If there is another look, you can switch to it. E.g., a sheathed weapon or the contents of a book or scroll.
+- If there is another look, you can switch to it. E.g., sheathed weapons or the contents of books and scrolls.
 - To finish the inspection, press the same key binding as for the beginning.
 
 ## Requirements
