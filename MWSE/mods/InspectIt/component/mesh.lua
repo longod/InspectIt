@@ -147,46 +147,58 @@ function this.CalculateBounds(model)
                     return
                 end
 
-                local transform = node.worldTransform:copy()
-                if node.skinInstance and node.skinInstance.root then
-                    -- skinning seems still skeleton relative or the original world coords from the root to this node
-                    -- correct mul order? or just copy.
-                    transform = node.skinInstance.root.worldTransform:copy() * transform:copy()
-                end
-
-                -- object world bounds
                 local max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
                 local min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
-                for _, vert in ipairs(data.vertices) do
-                    local v = transform * vert:copy()
-                    max.x = math.max(max.x, v.x);
-                    max.y = math.max(max.y, v.y);
-                    max.z = math.max(max.z, v.z);
-                    min.x = math.min(min.x, v.x);
-                    min.y = math.min(min.y, v.y);
-                    min.z = math.min(min.z, v.z);
+
+                if node.skinInstance then
+                    -- They are raw vertices that have not been transformed in any way, so software skinning must be computed.
+                    -- If I could access niBounds, generally that is fine, but it is loose and also MWSE cannot do it.
+                    -- FIXME Most cases are correct with this transform, but some meshes that use the root bone, such as birds in “Where are all the birds going”, seem to be offset further in the actual rendering.
+                    -- Thus, they do not match the rendering. That bounds by tcb are also different, so something still needs to be done.
+
+                    local vertices = table.new(data.vertexCount, 0) ---@type tes3vector3[]
+                    -- fill zero
+                    for i = 1, data.vertexCount, 1 do
+                        vertices[i] = tes3vector3.new(0, 0, 0)
+                    end
+                    local skin = node.skinInstance.data
+                    for boneIndex, boneData in ipairs(skin.boneData) do
+                        local bone = node.skinInstance.bones[boneIndex]
+                        local relative = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
+                        local m = bone.worldTransform:copy() * relative
+                        for _, w in ipairs(boneData.weights) do
+                            local index = w.index + 1 -- 0 start
+                            local p = data.vertices[index]
+                            local a = m * p:copy() * w.weight
+                            local b = vertices[index]
+                            vertices[index] = b:copy() + a:copy()
+                        end
+                    end
+                    for _, v in ipairs(vertices) do
+                        max.x = math.max(max.x, v.x);
+                        max.y = math.max(max.y, v.y);
+                        max.z = math.max(max.z, v.z);
+                        min.x = math.min(min.x, v.x);
+                        min.y = math.min(min.y, v.y);
+                        min.z = math.min(min.z, v.z);
+                        -- mwse.log("%f, %f, %f",v.x, v.y,  v.z)
+                    end
+                else
+                    local vertices = data.vertices
+                    local m = node.worldTransform:copy()
+                    for _, vert in ipairs(vertices) do
+                        local v = m * vert:copy()
+                        max.x = math.max(max.x, v.x);
+                        max.y = math.max(max.y, v.y);
+                        max.z = math.max(max.z, v.z);
+                        min.x = math.min(min.x, v.x);
+                        min.y = math.min(min.y, v.y);
+                        min.z = math.min(min.z, v.z);
+                        -- mwse.log("%f, %f, %f",v.x, v.y,  v.z)
+                    end
                 end
 
-                -- Some meshes seem to contain incorrect vertices.
-                -- FIXME Or calculations required to transform are still missing.
-                -- In especially 'Tri chest' of 'The Imperfect'.
-                -- worldBounds always seems correctly, but it's a sphere, lazy bounds. These need to be combined well.
-                local center = node.worldBoundOrigin
-                local radius = node.worldBoundRadius
-                local threshold = radius * 2 -- FIXME In theory, it should fit within the radius, but often it does not. Allow for more margin.
-                threshold = threshold * threshold
-                -- boundingbox is some distance away from bounding sphere.
-                if DistanceSquared(center, max) > threshold or DistanceSquared(center, min) > threshold then
-                    logger:debug("Use bounding sphere: %s", tostring(node.name))
-                    logger:trace("origin %s, radius %f", node.worldBoundOrigin, node.worldBoundRadius)
-                    logger:trace("world max %s, min %s, size %s, center %s, length %f", max, min, (max - min), ((max + min) * 0.5), (max - min):length())
-                    local smax = center:copy() + radius
-                    local smin = center:copy() - radius
-                    max = smax
-                    min = smin
-                end
-
-                -- merge all
+                -- merge
                 bounds.max.x = math.max(bounds.max.x, max.x);
                 bounds.max.y = math.max(bounds.max.y, max.y);
                 bounds.max.z = math.max(bounds.max.z, max.z);

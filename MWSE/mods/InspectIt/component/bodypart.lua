@@ -89,7 +89,7 @@ function this.BuildBodyPart(bodypart, root)
                 parent:attachChild(node)
                 -- retarget
                 if node.skinInstance then
-                    if node.skinInstance.root ~= nil then
+                    if node.skinInstance.root ~= nil then -- FIXME some time crashed
                         node.skinInstance.root = parent
                     end
                     if node.skinInstance.bones ~= nil then
