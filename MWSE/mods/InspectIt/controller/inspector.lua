@@ -29,7 +29,7 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 
 ---@class Inspector : IController
 ---@field root niNode? inspection root node
----@field cameraJoint niNode? camera relative node
+---@field cameraJoint niNode? camera facing node
 ---@field enterFrameCallback fun(e : enterFrameEventData)?
 ---@field activateCallback fun(e : activateEventData)?
 ---@field switchAnotherLookCallback fun()?
@@ -156,21 +156,45 @@ end
 ---@param self Inspector
 ---@param scale number
 function this.SetScale(self, scale)
-    local prev = self.root.scale
-    local newScale = math.max(self.baseScale * scale, math.fepsilon)
-    self.root.scale = newScale
-    -- self.logger:trace("Zoom %f -> %f", prev, scale)
-
-    mesh.RescaleParticle(self.root, prev / newScale)
+    local root = self.root
+    if root then
+        local prev = root.scale
+        local newScale = math.max(self.baseScale * scale, math.fepsilon)
+        root.scale = newScale
+        -- self.logger:trace("Zoom %f -> %f", prev, scale)
+        mesh.RescaleParticle(root, prev / newScale)
+    end
 end
 
 
 ---@param self Inspector
 ---@param pickup boolean
 function this.PlaySound(self, pickup)
-    if config.inspection.playSound then
-        -- TODO creature -> sound gen
-        -- door, others
+    if config.inspection.playSound and self.object then
+        -- TODO NPC says greeting, but finding the voiceline is hard.
+        local volume = 0.5 -- Usually the volume is low to sound on the 3D.
+        if self.object.objectType == tes3.objectType.door then
+            local object = self.object ---@cast object tes3door
+            local sound = pickup and object.openSound or object.closeSound
+            if sound then
+                sound:play(nil, volume)
+            end
+            return
+        elseif self.object.objectType == tes3.objectType.creature then
+            local object = self.object ---@cast object tes3creature|tes3creatureInstance
+            if object.isInstance then
+                object = object.baseObject
+            end
+            while object.soundCreature do
+                object = object.soundCreature
+            end
+            local soundGen = pickup and tes3.soundGenType.moan or tes3.soundGenType.roar
+            local gen = tes3.getSoundGenerator(object.id, soundGen)
+            if gen then
+                gen.sound:play(nil, volume)
+            end
+            return
+        end
         tes3.playItemPickupSound({ item = self.object.id, pickup = pickup })
     end
 end
@@ -182,8 +206,8 @@ function this.OnEnterFrame(self, e)
         -- pause
         return
     end
-
-    if self.root then
+    local root = self.root
+    if root then
         -- tes3ui.captureMouseDrag may be better?
 
         local wc = tes3.worldController
@@ -255,12 +279,12 @@ function this.OnEnterFrame(self, e)
             xRot:fromAngleAxis(self.angularVelocity.x, xAxis)
 
             local q = niQuaternion.new()
-            q:fromRotation(self.root.rotation:copy())
+            q:fromRotation(root.rotation:copy())
 
             local dest = zRot * xRot * q
             local m = tes3matrix33.new()
             m:fromQuaternion(dest)
-            self.root.rotation = m:copy()
+            root.rotation = m:copy()
 
             -- No basis in physics.
             self.angularVelocity = self.angularVelocity:lerp(self.angularVelocity * frictionRotation,
@@ -268,20 +292,20 @@ function this.OnEnterFrame(self, e)
         end
         if self.velocity:dot(self.velocity) > velocityEpsilon then
             -- center vs corners
-            local dest = self.root.translation:copy() + self.velocity:copy()
+            local dest = root.translation:copy() + self.velocity:copy()
             dest.x = math.clamp(dest.x, -self.distance.x, self.distance.x)
             dest.z = math.clamp(dest.z, -self.distance.z, self.distance.z)
-            self.root.translation = dest
+            root.translation = dest
             self.velocity = self.velocity:lerp(self.velocity * frictionTranslation,
                 math.clamp(e.delta * resistanceTranslation, 0, 1))
         end
-        -- local euler = self.root.rotation:toEulerXYZ():copy()
+        -- local euler = root.rotation:toEulerXYZ():copy()
         -- tes3.messageBox(string.format("%f, %f, %f", math.deg(euler.x), math.deg(euler.y), math.deg(euler.z)))
 
         -- TODO play controllers, but those does not work.
         -- updateTime = updateTime  + e.delta
-        --self.root:update({ controllers = true })
-        self.root:update()
+        -- root:update({ controllers = true })
+        root:update()
     end
 end
 
@@ -296,7 +320,8 @@ end
 ---@param self Inspector
 function this.SwitchAnotherLook(self)
     self.logger:debug("Switch another look")
-    if self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
+    local root = self.root
+    if root and self.anotherData and self.anotherData.data and self.anotherData.type ~= nil then
         local another = self.anotherModel
 
         if self.anotherData.type == settings.anotherLookType.BodyParts then
@@ -348,12 +373,12 @@ function this.SwitchAnotherLook(self)
 
             if self.anotherLook then
                 self.logger:debug("Body parts to Item")
-                self.root:detachChild(self.anotherModel.root)
-                self.root:attachChild(self.baseModel.root)
+                root:detachChild(self.anotherModel.root)
+                root:attachChild(self.baseModel.root)
             else
                 self.logger:debug("Item to Body parts")
-                self.root:detachChild(self.baseModel.root)
-                self.root:attachChild(self.anotherModel.root)
+                root:detachChild(self.baseModel.root)
+                root:attachChild(self.anotherModel.root)
             end
 
             self.anotherLook = not self.anotherLook
@@ -364,8 +389,8 @@ function this.SwitchAnotherLook(self)
             -- There are also multiple cameras, so the number of cameras increases for the combination.
             self:AdjustScale(self.lighting, self.anotherLook)
 
-            self.root:updateEffects()
-            self.root:update()
+            root:updateEffects()
+            root:update()
             self:PlaySound(self.anotherLook)
 
             -- notify disabling mirroring option
@@ -391,12 +416,12 @@ function this.SwitchAnotherLook(self)
 
             if self.anotherLook then
                 self.logger:debug("Sheathed Weapon")
-                self.root:detachChild(self.anotherModel.root)
-                self.root:attachChild(self.baseModel.root)
+                root:detachChild(self.anotherModel.root)
+                root:attachChild(self.baseModel.root)
             else
                 self.logger:debug("Drawn Weapon")
-                self.root:detachChild(self.baseModel.root)
-                self.root:attachChild(self.anotherModel.root)
+                root:detachChild(self.baseModel.root)
+                root:attachChild(self.anotherModel.root)
             end
 
             self.anotherLook = not self.anotherLook
@@ -404,18 +429,17 @@ function this.SwitchAnotherLook(self)
             -- apply same scale for particle
             local scale = Ease(self.zoomTime / zoomDuration, self.zoomStart, self.zoomEnd)
             self:SetScale(scale)
-            self.root:updateEffects()
-            self.root:update()
+            root:updateEffects()
+            root:update()
             self:PlaySound(not self.anotherLook)
         end
 
         if self.anotherData.type == settings.anotherLookType.Book and self.anotherData.data.text then
             -- Currently, when there is no lighting, it is rendered after menus and is in front of the book menu, which is disturbing, so it should be hidden in some way.
-            if self.root then
-                self.root.flags = bit.bor(self.root.flags, 0x1)     -- hidden flags
-                self.root:update()
-                self.logger:debug("Hide the object for book menu")
-            end
+
+            root.flags = bit.bor(root.flags, 0x1)     -- hidden flags
+            root:update()
+            self.logger:debug("Hide the object for book menu")
             local menu = nil ---@type tes3uiElement?
 
             if self.anotherData.data.type == tes3.bookType.book then
@@ -441,11 +465,8 @@ function this.SwitchAnotherLook(self)
             else
                 self.logger:error("Not find book/scroll menu")
                 -- revert
-                if self.root then
-                    self.root.flags = bit.band(self.root.flags, bit.bnot(0x1))
-                    self.root:update()
-                    self.logger:debug("Revert the object visibility")
-                end
+                root.flags = bit.band(root.flags, bit.bnot(0x1))
+                root:update()
             end
         end
     end
@@ -501,13 +522,16 @@ function this.AdjustScale(self, lighting, anotherLook)
             self:SetScale(scale)
 
             -- clamp translation
-            local dest = self.root.translation:copy()
-            dest.x = dest.x / self.distance.x  -- to ratio
-            dest.z = dest.z / self.distance.z  -- to ratio
-            self.distance = tes3vector3.new(distanceWidth * 0.5, self.distance.y, distanceHeight * 0.5)
-            dest.x = math.clamp(dest.x * self.distance.x, -self.distance.x, self.distance.x)
-            dest.z = math.clamp(dest.z * self.distance.z, -self.distance.z, self.distance.z)
-            self.root.translation = dest
+            local root = self.root
+            if root then
+                local dest = root.translation:copy()
+                dest.x = dest.x / self.distance.x  -- to ratio
+                dest.z = dest.z / self.distance.z  -- to ratio
+                self.distance = tes3vector3.new(distanceWidth * 0.5, self.distance.y, distanceHeight * 0.5)
+                dest.x = math.clamp(dest.x * self.distance.x, -self.distance.x, self.distance.x)
+                dest.z = math.clamp(dest.z * self.distance.z, -self.distance.z, self.distance.z)
+                root.translation = dest
+            end
         end
     end
 end
@@ -606,16 +630,17 @@ end
 
 function this.ResetPose(self)
     self.logger:debug("Reset pose")
-    if self.root then
+    local root = self.root
+    if root then
         self.angularVelocity = tes3vector3.new(0, 0, 0)
         self.velocity = tes3vector3.new(0, 0, 0)
         self.zoomStart = 1
         self.zoomEnd = 1
         self.zoomTime = zoomDuration
-        self.root.rotation = self.baseRotation:copy()
+        root.rotation = self.baseRotation:copy()
         self:SetScale(1)
-        self.root.translation = tes3vector3.new(0, self.distance.y, 0)
-        self.root:update()
+        root.translation = tes3vector3.new(0, self.distance.y, 0)
+        root:update()
     end
 end
 
@@ -955,7 +980,7 @@ function this.Deactivate(self, params)
         self.root:updateEffects()
 
         local camera = GetCamera(self.lighting)
-        if camera then
+        if camera and self.cameraJoint then
             local cameraRoot = camera.cameraRoot
             cameraRoot:detachChild(self.cameraJoint)
             cameraRoot:updateEffects()
