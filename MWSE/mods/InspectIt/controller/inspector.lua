@@ -19,8 +19,17 @@ local fittingRatio = 0.5 -- Ratio to fit the screen
 ---@field root niNode?
 ---@field bounds tes3boundingBox?
 
+-- scene graph struestue
+--  - cameraRoot
+--      (- Some nodes possibly added by the mod)
+--          - niCamera: It can't have children. Normally it is identity, but it can be moved as we press the tab key.
+--      - self.cameraJoint: It faces the same direction as niCamera. But it is not converted to y-up, it remains z-up.
+--          -  self.root
+--              - model node
+
 ---@class Inspector : IController
----@field root niNode?
+---@field root niNode? inspection root node
+---@field cameraJoint niNode? camera relative node
 ---@field enterFrameCallback fun(e : enterFrameEventData)?
 ---@field activateCallback fun(e : activateEventData)?
 ---@field switchAnotherLookCallback fun()?
@@ -48,7 +57,6 @@ setmetatable(this, { __index = base })
 
 ---@type Inspector
 local defaults = {
-    root = nil,
     enterFrame = nil,
     angularVelocity = tes3vector3.new(0, 0, 0),
     velocity = tes3vector3.new(0, 0, 0),
@@ -78,9 +86,23 @@ function this.new()
     return instance
 end
 
+--- Normally it is identity, but it can be moved as we press the tab key.
+---@return tes3matrix33
+local function CalculateCameraRelativeRotation()
+    if tes3.worldController and tes3.worldController.worldCamera then
+        local camera = tes3.worldController.worldCamera.cameraData.camera
+        local view = tes3matrix33.new(camera.worldRight, camera.worldDirection, camera.worldUp):transpose() -- keep z-up lookat
+        local baseView = tes3.worldController.worldCamera.cameraRoot.worldTransform.rotation:copy()
+        local relative = baseView:transpose() * view
+        return relative
+    end
+    return tes3matrix33.new(1, 0, 0, 0, 1, 0, 0, 0, 1)
+end
+
 ---@param lighting LightingType
 ---@return tes3worldControllerRenderCamera|tes3worldControllerRenderTarget? camera
 ---@return number fovX
+---@return tes3matrix33
 local function GetCamera(lighting)
     local fovX = mge.camera.fov
     if tes3.worldController then
@@ -89,11 +111,12 @@ local function GetCamera(lighting)
             if camera and camera.cameraData then
                 fovX = camera.cameraData.fov
             end
-            return tes3.worldController.menuCamera, fovX
+            -- The menu camera does not seem to be affected by niCamera rotation
+            return tes3.worldController.menuCamera, fovX, tes3matrix33.new(1, 0, 0, 0, 1, 0, 0, 0, 1)
         end
-        return tes3.worldController.armCamera, fovX -- default
+        return tes3.worldController.armCamera, fovX, CalculateCameraRelativeRotation() -- default
     end
-    return nil, fovX
+    return nil, fovX, tes3matrix33.new(1, 0, 0, 0, 1, 0, 0, 0, 1)
 end
 
 ---@param t number [0,1]
@@ -454,7 +477,7 @@ end
 ---@param lighting LightingType
 ---@param anotherLook boolean
 function this.AdjustScale(self, lighting, anotherLook)
-    local camera, fovX = GetCamera(lighting)
+    local camera, fovX, _ = GetCamera(lighting)
     if camera then
         -- recalculate base scale, fov changed
         -- but different perspective due to changes in angle of view will occur.
@@ -498,14 +521,14 @@ function this.SwitchLighting(self)
     end
     ---@cast lighting LightingType
     local prev = GetCamera(self.lighting)
-    local next, fovX = GetCamera(lighting)
+    local next, fovX, cameraFacing = GetCamera(lighting)
     if prev and next then
         self.logger:debug("Switch lighting: %d -> %d", self.lighting, lighting)
         -- Currently the only difference in lighting is the camera
 
         self:AdjustScale(lighting, self.anotherLook)
 
-        prev.cameraRoot:detachChild(self.root)
+        prev.cameraRoot:detachChild(self.cameraJoint)
 
         if lighting == settings.lightingType.Constant then
             -- Add to the top of the list. Unfortunately, it is not rendered first.
@@ -520,9 +543,11 @@ function this.SwitchLighting(self)
                 next.cameraRoot:attachChild(child)
             end
             --]]
-            next.cameraRoot:attachChild(self.root)
+            self.cameraJoint.rotation = cameraFacing -- identity
+            next.cameraRoot:attachChild(self.cameraJoint)
         else
-            next.cameraRoot:attachChild(self.root)
+            self.cameraJoint.rotation = cameraFacing
+            next.cameraRoot:attachChild(self.cameraJoint)
         end
 
         prev.cameraRoot:updateEffects()
@@ -792,8 +817,7 @@ function this.Activate(self, params)
     local bounds = mesh.CalculateBounds(model)
 
     -- initial scaling
-    -- FIXME It does not work correctly while rotating the camera while holding down the tab key during TPV.
-    local camera, fovX = GetCamera(self.lighting)
+    local camera, fovX, cameraFacing = GetCamera(self.lighting)
     if not camera then
         self.logger:error("Camera not found")
         return
@@ -802,7 +826,6 @@ function this.Activate(self, params)
     local distance = params.offset
 
     -- centering
-    -- FIXME Some creatures appear to be offset off. Should skinning be considered?
     local offset = (bounds.max + bounds.min) * -0.5
     self.logger:debug("bounds: %s", bounds)
     self.logger:debug("bounds offset: %s", offset)
@@ -878,7 +901,12 @@ function this.Activate(self, params)
 
     self.zoomMax = self:CalculateZoomMax(bounds, distance,cameraData.nearPlaneDistance)
 
-    cameraRoot:attachChild(root)
+    local cameraJoint = niNode.new()
+    cameraJoint.rotation = cameraFacing
+    cameraJoint:attachChild(root)
+    self.cameraJoint = cameraJoint
+
+    cameraRoot:attachChild(self.cameraJoint)
     cameraRoot:updateEffects()
     cameraRoot:update()
 
@@ -929,7 +957,7 @@ function this.Deactivate(self, params)
         local camera = GetCamera(self.lighting)
         if camera then
             local cameraRoot = camera.cameraRoot
-            cameraRoot:detachChild(self.root)
+            cameraRoot:detachChild(self.cameraJoint)
             cameraRoot:updateEffects()
             cameraRoot:update()
         end
@@ -952,6 +980,7 @@ function this.Deactivate(self, params)
         end
     end
     self.root = nil
+    self.cameraJoint = nil
     self.baseModel.root = nil
     self.baseModel.bounds = nil
     self.anotherModel.root = nil
@@ -963,6 +992,7 @@ end
 ---@param self Inspector
 function this.Reset(self)
     self.root = nil
+    self.cameraJoint = nil
     self.baseModel.root = nil
     self.baseModel.bounds = nil
     self.anotherModel.root = nil

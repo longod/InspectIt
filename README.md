@@ -27,9 +27,8 @@ This mod allow you to inspect a variety of objects.
 
 ## Known Issues and Future Work
 - When it is not lit, it is rendered in front of the UI.
-- It does not work correctly while rotating the camera while holding down the tab key during TPV.
 - It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
-- For some objects, the initial orientation or position is not appropriate.
+- For some objects, the initial orientation is not appropriate.
 - If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
 - To inspect the player yourself, you have to be TPV.
 - Animations are not played. Especially particles.
