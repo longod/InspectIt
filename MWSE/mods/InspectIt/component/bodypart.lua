@@ -59,8 +59,8 @@ function this.BuildBodyPart(bodypart, root)
         return
     end
 
-    -- cache remaining skin instance?
-    local model = tes3.loadMesh(part.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    -- cache remaining skin instance? with cache?
+    local model = tes3.loadMesh(part.mesh, false) --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
     -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
     -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
     logger:trace("%s", mesh.Dump(model))
@@ -82,22 +82,17 @@ function this.BuildBodyPart(bodypart, root)
         mesh.foreach(model, function(node, _)
             if node:isInstanceOfType(ni.type.NiTriShape) then
                 if node.name and node.name:lower():startswith(prefix) ~= true then
-                    -- ignore opposite part
+                    -- ignore unmatched part
                     logger:trace("Ignored: %s", node.name)
                     return
                 end
                 parent:attachChild(node)
                 -- retarget
                 if node.skinInstance then
-                    if node.skinInstance.root ~= nil then -- FIXME some time crashed
-                        node.skinInstance.root = parent
-                    end
-                    if node.skinInstance.bones ~= nil then
-                        for index, bone in ipairs(node.skinInstance.bones) do
-                            if bone ~= nil and bone.name ~= nil then
-                                node.skinInstance.bones[index] = root:getObjectByName(bone.name)
-                            end
-                        end
+                    -- It seems to crash if you try to check nil
+                    node.skinInstance.root = parent
+                    for index, bone in ipairs(node.skinInstance.bones) do
+                        node.skinInstance.bones[index] = root:getObjectByName(bone.name)
                     end
                 end
             end
