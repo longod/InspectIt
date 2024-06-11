@@ -89,7 +89,7 @@ function this.CanMirrorById(id)
     return true
 end
 
----@param sourceMod string
+---@param sourceMod string?
 ---@return boolean
 function this.CanMirrorBySourceMod(sourceMod)
     if sourceMod and config.leftPartFilter[sourceMod:lower()] == true then
@@ -255,22 +255,20 @@ function this.CleanMesh(model)
         -- if not isCreature then
         if bit.band(node.flags, 0x1) == 0x1 then -- invisible
             remove = true
-            logger:trace("Remove by visibility")
-        end
-        -- end
-        if node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
+            logger:trace("Removed by visibility: %s", node.name)
+        elseif node:isInstanceOfType(ni.type.RootCollisionNode) then -- collision
             remove = true
-            logger:trace("Remove by collision")
+            logger:trace("Removed by collision: %s", node.name)
         elseif node:isOfType(ni.type.NiTriShape) then
             if node.name then
                 local n = node.name:lower()
                 -- https://morrowind-nif.github.io/Notes_EN/module_2_3_1_3_2_1.htm
                 if n:startswith("tri shadow") then -- shadow
                     remove = true
-                    logger:trace("Remove by Tri Shadow")
+                    logger:trace("Removed by Tri Shadow: %s", node.name)
                 elseif n:startswith("tri bip") then -- dummy
                     remove = true
-                    logger:trace("Remove by Tri Bip")
+                    logger:trace("Removed by Tri Bip: %s", node.name)
                 end
             end
         end

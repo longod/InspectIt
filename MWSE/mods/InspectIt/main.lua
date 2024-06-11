@@ -66,7 +66,7 @@ local function FindAnotherLook(object)
         -- Weapon Sheathing
         local sheathMesh = require("InspectIt.mod").FindWeaponSheathingMesh(object.mesh)
         if sheathMesh then
-            logger:info("Find Weapon Sheathing mesh: %s", sheathMesh)
+            logger:info("Find weapon sheathing mesh: %s", sheathMesh)
             local data = { path = sheathMesh } ---@type WeaponSheathingData
             return settings.anotherLookType.WeaponSheathing, data
         end
@@ -82,8 +82,8 @@ local function FindAnotherLook(object)
                 return settings.anotherLookType.Book, data
             end
         else
-            logger:debug("%s, book or scroll has a sciprt: %s", object.id, tostring(object.script.id))
             tes3.messageBox(settings.i18n("messageBox.bookRequirement.text", { name = object.name }))
+            logger:debug("book has a script id: %s sourceMod: %s, scirpt id: %s, sourceMod: %s", object.id, object.sourceMod, object.script.id, object.script.sourceMod)
         end
     end
     return nil, nil
@@ -213,7 +213,7 @@ local function EnterInspection(params)
 
     local referenceNode = FindReferenceNode(params)
 
-    logger:info("Enter Inspection: %s (%s)", params.object.name, params.object.id)
+    logger:info("Enter Inspection name: %s, id: %s, sourceMod: %s", params.object.name, params.object.id, settings.GetSourceMod(params.object))
 
     ---@type Activate.Params
     local args = { object = params.object, offset = 20, another = { type = another, data = data }, description = description, name = name, referenceNode = referenceNode }

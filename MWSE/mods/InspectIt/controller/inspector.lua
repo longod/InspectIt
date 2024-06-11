@@ -330,12 +330,13 @@ function this.SwitchAnotherLook(self)
                 local data = self.anotherData.data ---@cast data BodyPartData
 
                 -- base
-                self.logger:debug("Load base mesh: %s", tes3.player.object.mesh)
-                if not tes3.getFileExists(string.format("Meshes\\%s", tes3.player.object.mesh)) then
-                    self.logger:error("Not exist mesh: %s", tes3.player.object.mesh)
+                self.logger:debug("Load base anim id: %s, mesh: %s, sourceMod: %s", tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
+                if not tes3.player.object.mesh or not tes3.getFileExists(string.format("Meshes\\%s", tes3.player.object.mesh)) then
+                    self.logger:error("Missing base anim id: %s, mesh: %s, sourceMod: %s", tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
                     return
                 end
-                local root = tes3.loadMesh(tes3.player.object.mesh, true):clone()--[[@as niNode]]
+                -- remaining any state with cache?
+                local root = tes3.loadMesh(tes3.player.object.mesh, false) --[[@as niNode]]
 
                 -- remove unnecessary nodes
                 mesh.CleanMesh(root)
@@ -403,8 +404,8 @@ function this.SwitchAnotherLook(self)
             if not another.root then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
                 self.logger:debug("Load weapon sheathing mesh: %s", data.path)
-                if not tes3.getFileExists(string.format("Meshes\\%s", data.path)) then
-                    self.logger:error("Not exist mesh: %s", data.path)
+                if not data.path or not tes3.getFileExists(string.format("Meshes\\%s", data.path)) then
+                    self.logger:error("Missing weapon sheathing mesh: %s", data.path)
                     return
                 end
                 another.root = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
@@ -803,9 +804,9 @@ function this.Activate(self, params)
         end
 
     else
-        self.logger:debug("Load mesh: %s", object.mesh)
-        if not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
-            self.logger:error("Not exist mesh: %s", object.mesh)
+        self.logger:debug("Load id: %s, mesh: %s, sourceMod: %s", object.id, object.mesh, settings.GetSourceMod(object))
+        if not object.mesh or not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
+            self.logger:error("Missing id: %s, mesh: %s, sourceMod: %s", object.id, object.mesh, settings.GetSourceMod(object))
             return
         end
         model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]

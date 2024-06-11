@@ -47,19 +47,18 @@ function this.BuildBodyPart(bodypart, root)
         logger:error("Failed to find activeBodyPart %d: %s", bodypart.type, bodypart.part.id)
         return
     end
-    logger:debug("Load bodypart mesh: %s", part.mesh)
-    if not tes3.getFileExists(string.format("Meshes\\%s", part.mesh)) then
-        logger:error("Not exist mesh: %s", part.mesh)
-        return
-    end
-
     local to = root:getObjectByName(socket.name) --[[@as niNode]]
     if not to then
         logger:error("Failed to find to attach to %s", socket.name)
         return
     end
 
-    -- cache remaining skin instance? with cache?
+    logger:debug("Load bodypart id: %s, mesh: %s, sourceMod: %s", part.id, part.mesh, part.sourceMod)
+    if not part.mesh or not tes3.getFileExists(string.format("Meshes\\%s", part.mesh)) then
+        logger:error("Missing bodypart id: %s, mesh: %s, sourceMod: %s", part.id, part.mesh, part.sourceMod)
+        return
+    end
+    -- remaining skin instance with cache?
     local model = tes3.loadMesh(part.mesh, false) --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
     -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
     -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
