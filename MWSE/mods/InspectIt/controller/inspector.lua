@@ -181,17 +181,19 @@ function this.PlaySound(self, pickup)
             end
             return
         elseif self.object.objectType == tes3.objectType.creature then
-            local object = self.object ---@cast object tes3creature|tes3creatureInstance
-            if object.isInstance then
-                object = object.baseObject
-            end
-            while object.soundCreature do
-                object = object.soundCreature
-            end
-            local soundGen = pickup and tes3.soundGenType.moan or tes3.soundGenType.roar
-            local gen = tes3.getSoundGenerator(object.id, soundGen)
-            if gen then
-                gen.sound:play(nil, volume)
+            if config.development.experimental then
+                local object = self.object ---@cast object tes3creature|tes3creatureInstance
+                if object.isInstance then
+                    object = object.baseObject
+                end
+                while object.soundCreature do
+                    object = object.soundCreature
+                end
+                local soundGen = pickup and tes3.soundGenType.moan or tes3.soundGenType.roar
+                local gen = tes3.getSoundGenerator(object.id, soundGen)
+                if gen then
+                    gen.sound:play(nil, volume)
+                end
             end
             return
         end
@@ -351,7 +353,6 @@ function this.SwitchAnotherLook(self)
                 local bp = require("InspectIt.component.bodypart")
                 for _, part in ipairs(data.parts) do
                     bp.BuildBodyPart(part, root)
-                    --p.SetBodyPart(part, root)
                 end
 
                 -- rotate to base object relative
@@ -839,6 +840,7 @@ function this.Activate(self, params)
     end
 
     model:update() -- trailer partiles gone. but currently thoses are glitched, so its ok.
+    -- self.logger:trace("%s", mesh.Dump(model))
 
     local bounds = mesh.CalculateBounds(model)
 

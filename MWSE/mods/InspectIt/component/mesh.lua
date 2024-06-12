@@ -153,8 +153,6 @@ function this.CalculateBounds(model)
                 if node.skinInstance then
                     -- They are raw vertices that have not been transformed in any way, so software skinning must be computed.
                     -- If I could access niBounds, generally that is fine, but it is loose and also MWSE cannot do it.
-                    -- FIXME Most cases are correct with this transform, but some meshes that use the root bone, such as birds in “Where are all the birds going”, seem to be offset further in the actual rendering.
-                    -- Thus, they do not match the rendering. That bounds by tcb are also different, so something still needs to be done.
 
                     local vertices = table.new(data.vertexCount, 0) ---@type tes3vector3[]
                     -- fill zero
@@ -162,10 +160,14 @@ function this.CalculateBounds(model)
                         vertices[i] = tes3vector3.new(0, 0, 0)
                     end
                     local skin = node.skinInstance.data
+                    -- FIXME Most cases are correct with this transform, but some meshes that use the root bone, such as birds in “Where are all the birds going”.
+                    -- The hierarchical structure is in a different position and is in the bone child. And this is because bind pose is not identity.
+                    -- This means that the transformation to the bone-space coordinate system must be performed by bind pose. I need detailed specifications.
+                    local bindPose = tes3transform:new(skin.rotation, skin.translation, skin.scale) -- inversed?
                     for boneIndex, boneData in ipairs(skin.boneData) do
                         local bone = node.skinInstance.bones[boneIndex]
-                        local relative = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
-                        local m = bone.worldTransform:copy() * relative
+                        local anim = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
+                        local m = bone.worldTransform:copy() * anim
                         for _, w in ipairs(boneData.weights) do
                             local index = w.index + 1 -- 0 start
                             local p = data.vertices[index]
@@ -174,7 +176,8 @@ function this.CalculateBounds(model)
                             vertices[index] = b:copy() + a:copy()
                         end
                     end
-                    for _, v in ipairs(vertices) do
+                    for _, vert in ipairs(vertices) do
+                        local v = vert
                         max.x = math.max(max.x, v.x);
                         max.y = math.max(max.y, v.y);
                         max.z = math.max(max.z, v.z);
