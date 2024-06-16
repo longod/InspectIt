@@ -15,7 +15,7 @@ This mod allow you to inspect a variety of objects.
 ## Requirements
 - The latest nightly build of Morrowind Script Extender 2.1
 - [Morrowind Graphics Extender XE](https://www.nexusmods.com/morrowind/mods/41102)
-    - `Enable shaders` in MGE XE must be enabled to use focuse effect. However, there is no need to set up anything in `Shader setup`.
+    - `Enable shaders` in MGE XE must be enabled to use focuse effect. But there is no need to set up anything in `Shader setup`.
 
 ## Compatibility
 - [Right Click Menu Exit](https://www.nexusmods.com/morrowind/mods/48458) by Merlord
@@ -29,7 +29,7 @@ This mod allow you to inspect a variety of objects.
 - When it is not lit, it is rendered in front of the UI.
 - Another look for armor and clothing is unstable (experimental)
 - To inspect the player yourself, you have to be TPV (experimental).
-- For some objects, the initial orientation or position is not appropriate.
+- For some objects, the initial orientation is not appropriate.
 - It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
 - If you look at an object from an angle you do not normally see, you may see that there is no geometry there and it looks like a hole. This problem possibly can be solved by model replacer mods.
 - Animations are not played. Especially particles.

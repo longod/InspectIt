@@ -138,6 +138,7 @@ function this.CalculateBounds(model)
         bounds.max = tes3vector3.new(-math.fhuge, -math.fhuge, -math.fhuge)
         bounds.min = tes3vector3.new(math.fhuge, math.fhuge, math.fhuge)
         local accept = false
+        -- local pointCloud = {}
         this.foreach(model, function(node)
             if node:isOfType(ni.type.NiTriShape) then
                 ---@cast node niTriShape
@@ -153,21 +154,22 @@ function this.CalculateBounds(model)
                 if node.skinInstance then
                     -- They are raw vertices that have not been transformed in any way, so software skinning must be computed.
                     -- If I could access niBounds, generally that is fine, but it is loose and also MWSE cannot do it.
-
                     local vertices = table.new(data.vertexCount, 0) ---@type tes3vector3[]
                     -- fill zero
                     for i = 1, data.vertexCount, 1 do
                         vertices[i] = tes3vector3.new(0, 0, 0)
                     end
                     local skin = node.skinInstance.data
-                    -- FIXME Most cases are correct with this transform, but some meshes that use the root bone, such as birds in “Where are all the birds going”.
-                    -- The hierarchical structure is in a different position and is in the bone child. And this is because bind pose is not identity.
-                    -- This means that the transformation to the bone-space coordinate system must be performed by bind pose. I need detailed specifications.
-                    local bindPose = tes3transform:new(skin.rotation, skin.translation, skin.scale) -- inversed?
+                    local bindPose = tes3transform:new(skin.rotation, skin.translation, skin.scale)
+                    local root = node.skinInstance.root.worldTransform
+                    local skeleton = node.worldTransform:copy() * bindPose:copy() * root:copy():invert()
                     for boneIndex, boneData in ipairs(skin.boneData) do
                         local bone = node.skinInstance.bones[boneIndex]
-                        local anim = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
-                        local m = bone.worldTransform:copy() * anim
+                        local boneSpace = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
+                        -- I guess morrowind's skinning animation transform without HW skinning.
+                        -- node local space -> bone sopace -> world animation space (no bind pose has been applied yet) ->
+                        -- skeleton root (parent of the root bone) space -> bind pose space -> node world space
+                        local m = skeleton * bone.worldTransform:copy() * boneSpace
                         for _, w in ipairs(boneData.weights) do
                             local index = w.index + 1 -- 0 start
                             local p = data.vertices[index]
@@ -185,6 +187,7 @@ function this.CalculateBounds(model)
                         min.y = math.min(min.y, v.y);
                         min.z = math.min(min.z, v.z);
                         -- mwse.log("%f, %f, %f",v.x, v.y,  v.z)
+                        -- table.insert(pointCloud, string.format("%f, %f, %f", v.x, v.y, v.z))
                     end
                 else
                     local vertices = data.vertices
@@ -198,6 +201,7 @@ function this.CalculateBounds(model)
                         min.y = math.min(min.y, v.y);
                         min.z = math.min(min.z, v.z);
                         -- mwse.log("%f, %f, %f",v.x, v.y,  v.z)
+                        -- table.insert(pointCloud, string.format("%f, %f, %f", v.x, v.y, v.z))
                     end
                 end
 
@@ -211,6 +215,13 @@ function this.CalculateBounds(model)
                 accept = true
             end
         end)
+
+        -- export point cloud data for debugging
+        --[[
+        local f = assert(io.open(string.format("%s.csv", (model.name:gsub("[/\\]", "-") or "bounds")), "w"))
+        f:write(table.concat(pointCloud, "\n"))
+        f:close()
+        --]]
 
         -- no geometry
         if not accept then
@@ -433,25 +444,37 @@ function this.Dump(root)
                 if node.worldTransform then
                     out = out .. "\n" .. indent .. string.format("  world trans %s, rot %s, scale %f", node.worldTransform.translation, node.worldTransform.rotation, node.worldTransform.scale)
                 end
+                -- out = out .. "\n" .. indent .. string.format("  flags: %x", node.flags)
+                local controller = node.controller
+                while controller do
+                    out = out .. "\n" .. indent .. string.format("  controller: %s", controller.RTTI.name)
+                    --[[
+                    out = out .. "\n" .. indent .. string.format("    active %s, timing %d, target %s", tostring(controller.active), controller.animTimingType, controller.target)
+                    --]]
+                    controller = controller.nextController
+                end
                 local props = node.properties
                 while props and props.data do
                     out = out .. "\n" .. indent .. string.format("  prop: %s", props.data.RTTI.name)
+                    --[[
                     local p = DumpProperty(props.data)
                     if p then
                         out = out .. "\n" .. p .. string.format(" propertyFlags: %d", props.data.propertyFlags)
                     end
+                    --]]
                     props = props.next
                 end
                 local effect = node.effectList
                 while effect and effect.data do
                     out = out .. "\n" .. indent .. string.format("  effect: %s", effect.data.RTTI.name)
+                    --[[
                     local p = DumpDynamicEffect(effect.data)
                     if p then
                         out = out .. "\n" .. p
                     end
+                    --]]
                     effect = effect.next
                 end
-
                 table.insert(str, indent .. "- " .. out)
             else
                 table.insert(str, indent .. "- " .. "nil")
