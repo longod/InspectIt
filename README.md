@@ -26,7 +26,7 @@ This mod allow you to inspect a variety of objects.
   - If those are sheathed weapons by that mod, you can switch the display to it.
 
 ## Known Issues and Future Work
-- When it is not lit, it is rendered in front of the UI.
+- When it is not lit, transparent object rendered in front of the UI.
 - Another look for armor and clothing is unstable (experimental)
 - To inspect the player yourself, you have to be TPV (experimental).
 - For some objects, the initial orientation is not appropriate.

@@ -119,6 +119,46 @@ local function GetCamera(lighting)
     return nil, fovX, tes3matrix33.new(1, 0, 0, 0, 1, 0, 0, 0, 1)
 end
 
+---@param parent niNode
+---@param node niNode
+---@param first boolean
+local function AttachChild(parent, node, first)
+    -- Add to the top of the list.
+    if first then
+        local children = table.new(table.size(parent.children), 0)
+        for _, child in ipairs(parent.children) do
+            table.insert(children, child)
+        end
+        parent:detachAllChildren()
+        parent:attachChild(node, true)
+        for _, child in ipairs(children) do
+            parent:attachChild(child, true)
+        end
+    else
+        parent:attachChild(node)
+    end
+end
+
+---@param node niNode
+---@param add boolean
+local function AddOrRemoveZBufferProperty(node, add)
+    local name =  "InspectIt:NoDepth"
+    local p = node:getProperty(ni.propertyType.zBuffer)
+    if add then
+        if not p then
+            local zBufferProperty = niZBufferProperty.new()
+            zBufferProperty.name = name
+            zBufferProperty:setFlag(false, 0) -- test
+            zBufferProperty:setFlag(false, 1) -- write
+            node:attachProperty(zBufferProperty)
+            node:updateProperties()
+        end
+    elseif p and p.name == name then
+        node:detachProperty(ni.propertyType.zBuffer)
+        node:updateProperties()
+    end
+end
+
 ---@param t number [0,1]
 ---@return number [0,1]
 local function EaseOutQuad(t)
@@ -557,23 +597,13 @@ function this.SwitchLighting(self)
         prev.cameraRoot:detachChild(self.cameraJoint)
 
         if lighting == settings.lightingType.Constant then
-            -- Add to the top of the list. Unfortunately, it is not rendered first.
-            --[[
-            local children = {}
-            for _, child in ipairs(next.cameraRoot.children) do
-                table.insert(children, child)
-            end
-            next.cameraRoot:detachAllChildren()
-            next.cameraRoot:attachChild(self.root, true)
-            for _, child in ipairs(children) do
-                next.cameraRoot:attachChild(child)
-            end
-            --]]
             self.cameraJoint.rotation = cameraFacing -- identity
-            next.cameraRoot:attachChild(self.cameraJoint)
+            -- Almost UIs do not have a ZBuffer property. And for some reason the menu camera does not have it either, with depth test enabled. So Disable it.
+            AddOrRemoveZBufferProperty(next.cameraRoot, true)
+            AttachChild(next.cameraRoot, self.cameraJoint, true)
         else
             self.cameraJoint.rotation = cameraFacing
-            next.cameraRoot:attachChild(self.cameraJoint)
+            AttachChild(next.cameraRoot, self.cameraJoint, false)
         end
 
         prev.cameraRoot:updateEffects()
@@ -682,6 +712,7 @@ local function SetupNode(offset)
     alphaProperty.alphaTestRef = 0
     alphaProperty.propertyFlags = 236 -- 0x1 enable tranparency, so 0 or player reference's default(236)
     root:attachProperty(alphaProperty)
+    root:updateProperties()
     -- NiMaterialProperty can't be created. If necessary, clone.
     return root
 end
@@ -930,11 +961,15 @@ function this.Activate(self, params)
     self.zoomMax = self:CalculateZoomMax(bounds, distance,cameraData.nearPlaneDistance)
 
     local cameraJoint = niNode.new()
+    cameraJoint.name = "InspectIt:CameraJoint"
     cameraJoint.rotation = cameraFacing
     cameraJoint:attachChild(root)
     self.cameraJoint = cameraJoint
 
-    cameraRoot:attachChild(self.cameraJoint)
+    AttachChild(cameraRoot, self.cameraJoint, self.lighting == settings.lightingType.Constant)
+    if self.lighting == settings.lightingType.Constant then
+        AddOrRemoveZBufferProperty(cameraRoot, true)
+    end
     cameraRoot:updateEffects()
     cameraRoot:update()
 
@@ -988,6 +1023,10 @@ function this.Deactivate(self, params)
             cameraRoot:detachChild(self.cameraJoint)
             cameraRoot:updateEffects()
             cameraRoot:update()
+        end
+        camera = GetCamera(settings.lightingType.Constant)
+        if camera then
+            AddOrRemoveZBufferProperty(camera.cameraRoot, false)
         end
 
         event.unregister(tes3.event.enterFrame, self.enterFrameCallback)

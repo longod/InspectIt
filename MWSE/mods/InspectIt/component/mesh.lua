@@ -376,14 +376,20 @@ local function DumpProperty(prop)
         ["NiRendererSpecificProperty"] = function() end,
         ["NiShadeProperty"] = function() end,
         ["NiSpecularProperty"] = function()end,
-        ["NiStencilProperty"] = function()end,
+        ["NiStencilProperty"] = function()
+            ---@cast prop niStencilProperty
+            return string.format("drawMode: %d", prop.drawMode)
+        end,
         ["NiTexturingProperty"] = function()end,
         ["NiVertexColorProperty"] = function()
-            ---@cast prop  niVertexColorProperty
+            ---@cast prop niVertexColorProperty
             return string.format("lighting: %d, source: %d", prop.lighting, prop.source)
         end,
         ["NiWireframeProperty"] = function()end,
-        ["NiZBufferProperty"] = function()end,
+        ["NiZBufferProperty"] = function()
+            ---@cast prop niZBufferProperty
+            return string.format("testFunction: %d", prop.testFunction)
+        end,
     }
     local f = func[prop.RTTI.name]
     if f then
@@ -459,7 +465,7 @@ function this.Dump(root)
                     --[[
                     local p = DumpProperty(props.data)
                     if p then
-                        out = out .. "\n" .. p .. string.format(" propertyFlags: %d", props.data.propertyFlags)
+                        out = out .. "\n" .. p .. string.format(" propertyFlags: %d", props.data.propertyFlags or 0)
                     end
                     --]]
                     props = props.next
