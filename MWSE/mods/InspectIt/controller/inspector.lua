@@ -857,7 +857,7 @@ function this.Activate(self, params)
 
     -- When there are separate polygons on both sides, such as papers,
     -- without backface culling, the back side seems to appear in the foreground depending on both position.
-    local backface = object.objectType ~= tes3.objectType.book
+    local backface = object.objectType ~= tes3.objectType.book and object.objectType ~= tes3.objectType.weapon
     self.mirrored = false
     if mesh.CanMirror(object) then
         self.logger:debug("Mirror the left part")
