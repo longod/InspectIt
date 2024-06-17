@@ -679,14 +679,16 @@ end
 ---@param offset number
 ---@return niNode
 local function SetupNode(offset)
+    -- local root = niNode.new()
 
-    -- doesnt work...
-    -- FIXME Menu camera does not draw first with attachment at the top and sorting off.
     ---@diagnostic disable-next-line: undefined-global
     -- local root = niSortAdjustNode.new()
     -- root.sortingMode = 1 -- ni.sortAdjustMode.off
 
-    local root = niNode.new()
+    -- Unfortunately, it is not possible to create an accumulator from MWSE, so we use the asset.
+    -- If not sorted by subsort, the alpha mesh in the object may become inconsistent.
+    -- NiSortAdjustNode: sortingMode = ni.sortAdjustMode.subsort, accumulator = NiAlphaAccumulator
+    local root = tes3.loadMesh("InspectIt/root.nif", false)
     root.name = "InspectIt:Root"
     root.translation = tes3vector3.new(0, offset, 0)
     root.appCulled = false

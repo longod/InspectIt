@@ -8,11 +8,12 @@ version = "1.5"
 
 [dependencies]
 assets = [
+    "Meshes\\InspectIt",
     "shaders\\XEshaders\\InspectIt",
 ]
 
 [dependencies.mwse]
-buildnumber = 3786
+buildnumber = 3940
 
 [dependencies.mge-xe]
 version = ">=0.15.0"
