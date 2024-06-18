@@ -53,13 +53,16 @@ function this.BuildBodyPart(bodypart, root)
         return
     end
 
-    logger:debug("Load bodypart id: %s, mesh: %s, sourceMod: %s", part.id, part.mesh, part.sourceMod)
     if not part.mesh or not tes3.getFileExists(string.format("Meshes\\%s", part.mesh)) then
         logger:error("Missing bodypart id: %s, mesh: %s, sourceMod: %s", part.id, part.mesh, part.sourceMod)
         return
     end
+    logger:debug("Load bodypart id: %s, mesh: %s, sourceMod: %s", part.id, part.mesh, part.sourceMod)
     -- remaining skin instance with cache?
     local model = tes3.loadMesh(part.mesh, false) --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+    if not model.name then
+        model.name = string.format("%s", part.mesh)
+    end
     -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
     -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
     logger:trace("%s", mesh.Dump(model))

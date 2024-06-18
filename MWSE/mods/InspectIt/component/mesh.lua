@@ -23,11 +23,25 @@ function this.foreach(node, func, depth)
     end
 end
 
----@param a tes3vector3
----@param b tes3vector3
-local function DistanceSquared(a, b)
-    local c = a - b
-    return c:dot(c)
+---@param path string?
+---@return string?
+function this.ResolvePath(path)
+    if not path then
+        return nil
+    end
+    -- split directory and filename
+    local dir, name = path:match("^(.-)([^\\/]-%.([^\\/%.]-))$")
+    logger:trace("dir: %s, name: %s", dir, name)
+    local xpath = string.format("%sx%s", dir, name)
+    if tes3.getFileExists(string.format("Meshes\\%s", xpath)) then
+        logger:debug("Find xnif: %s", xpath)
+        return xpath
+    end
+    if tes3.getFileExists(string.format("Meshes\\%s", path)) then
+        logger:debug("Find nif: %s", path)
+        return path
+    end
+    return nil
 end
 
 -- FIXME Usually, this is not a problem, but if the same mesh is diverted from the armor, even if it is not from the left or right side, it will not work.

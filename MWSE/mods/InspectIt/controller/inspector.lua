@@ -372,27 +372,28 @@ function this.SwitchAnotherLook(self)
                 local data = self.anotherData.data ---@cast data BodyPartData
 
                 -- base
-                self.logger:debug("Load base anim id: %s, mesh: %s, sourceMod: %s", tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
-                if not tes3.player.object.mesh or not tes3.getFileExists(string.format("Meshes\\%s", tes3.player.object.mesh)) then
-                    self.logger:error("Missing base anim id: %s, mesh: %s, sourceMod: %s", tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
+                local path = mesh.ResolvePath(tes3.player.object.mesh)
+                if not path then
+                    self.logger:error("Missing base anim %s id: %s, mesh: %s, sourceMod: %s", path, tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
                     return
                 end
+                self.logger:debug("Load base anim %s id: %s, mesh: %s, sourceMod: %s", path, tes3.player.object.id, tes3.player.object.mesh, settings.GetSourceMod(tes3.player.object))
                 -- remaining any state with cache?
-                local root = tes3.loadMesh(tes3.player.object.mesh, false) --[[@as niNode]]
+                local baseanim = tes3.loadMesh(path, false) --[[@as niNode]]
 
                 -- remove unnecessary nodes
-                mesh.CleanMesh(root)
+                mesh.CleanMesh(baseanim)
 
                 -- -- reset
-                root.translation = tes3vector3.new(0,0,0)
-                root.scale = 1
-                root:update() -- transform
+                baseanim.translation = tes3vector3.new(0,0,0)
+                baseanim.scale = 1
+                baseanim:update() -- transform
 
-                another.root = root
+                another.root = baseanim
 
                 local bp = require("InspectIt.component.bodypart")
                 for _, part in ipairs(data.parts) do
-                    bp.BuildBodyPart(part, root)
+                    bp.BuildBodyPart(part, baseanim)
                 end
 
                 -- rotate to base object relative
@@ -444,11 +445,11 @@ function this.SwitchAnotherLook(self)
 
             if not another.root then
                 local data = self.anotherData.data ---@cast data WeaponSheathingData
-                self.logger:debug("Load weapon sheathing mesh: %s", data.path)
                 if not data.path or not tes3.getFileExists(string.format("Meshes\\%s", data.path)) then
                     self.logger:error("Missing weapon sheathing mesh: %s", data.path)
                     return
                 end
+                self.logger:debug("Load weapon sheathing mesh: %s", data.path)
                 another.root = tes3.loadMesh(data.path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
 
                 -- use base offet, no adjust centering
@@ -781,6 +782,7 @@ function this.Activate(self, params)
             while effects do
                 local pereffect = 0
                 if effects.data then
+                    --[[
                     local effect = effects.data
                     if effect:isInstanceOfType(ni.type.NiLight) then -- only light or point
                         local affects = effect.affectedNodes
@@ -792,6 +794,7 @@ function this.Activate(self, params)
                             affects = affects.next
                         end
                     end
+                    --]]
                     self.logger:debug("Affected by %s: %d", effects.data, pereffect)
                 end
                 effects = effects.next
@@ -838,12 +841,16 @@ function this.Activate(self, params)
         end
 
     else
-        self.logger:debug("Load id: %s, mesh: %s, sourceMod: %s", object.id, object.mesh, settings.GetSourceMod(object))
-        if not object.mesh or not tes3.getFileExists(string.format("Meshes\\%s", object.mesh)) then
-            self.logger:error("Missing id: %s, mesh: %s, sourceMod: %s", object.id, object.mesh, settings.GetSourceMod(object))
+        local path = mesh.ResolvePath(object.mesh)
+        if not path then
+            self.logger:error("Missing %s id: %s, mesh: %s, sourceMod: %s", path, object.id, object.mesh, settings.GetSourceMod(object))
             return
         end
-        model = tes3.loadMesh(object.mesh, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        self.logger:debug("Load %s id: %s, mesh: %s, sourceMod: %s", path, object.id, object.mesh, settings.GetSourceMod(object))
+        model = tes3.loadMesh(path, true):clone() --[[@as niBillboardNode|niCollisionSwitch|niNode|niSortAdjustNode|niSwitchNode]]
+        if not model.name then
+            model.name = string.format("%s", path)
+        end
         self.logger:trace("%s", mesh.Dump(model))
         -- reset
         model:clearTransforms()
