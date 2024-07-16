@@ -140,9 +140,38 @@ function this.Activate(self, params)
     border.autoHeight = true
     border.paddingAllSides = 8
     border.childAlignX = 0.5
-    local nameLabel = border:createLabel({ text = name })
-    nameLabel.borderAllSides = 4
-    nameLabel.color = tes3ui.getPalette(tes3.palette.headerColor)
+
+    -- name
+    do
+        local block = border:createBlock()
+        block.flowDirection = tes3.flowDirection.topToBottom
+        block.autoWidth = true
+        block.autoHeight = true
+        block.borderAllSides = 4
+        block.childAlignX = 0.5
+        -- name
+        do
+            local label = block:createLabel({ text = name })
+            label.color = tes3ui.getPalette(tes3.palette.headerColor)
+        end
+        -- id
+        if config.display.objectId then
+            local objectId = params.object.id
+            -- ID is used as is to indicate whether it is an instance or not, unlike sourceMod.
+            local label = block:createLabel({ text = objectId })
+            label.color = tes3ui.getPalette(tes3.palette.headerColor)
+        end
+        -- sourceMod
+        if config.display.sourceMod then
+            local sourceMod = params.object.sourceMod
+            -- instances are sourceless and refer to the base object. always?
+            if not sourceMod and params.object.isInstance then
+                sourceMod = params.object.baseObject.sourceMod
+            end
+            local label = block:createLabel({ text = sourceMod or settings.i18n("guide.sourceless.text") })
+            label.color = tes3ui.getPalette(tes3.palette.headerColor)
+        end
+    end
 
     -- if guided
     do

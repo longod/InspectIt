@@ -231,6 +231,22 @@ local function OnModConfigReady(e)
                 table = config.display,
             }),
         })
+        display:createOnOffButton({
+            label = settings.i18n("mcm.display.objectId.label"),
+            description = settings.i18n("mcm.display.objectId.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "objectId",
+                table = config.display,
+            }),
+        })
+        display:createOnOffButton({
+            label = settings.i18n("mcm.display.sourceMod.label"),
+            description = settings.i18n("mcm.display.sourceMod.description"),
+            variable = mwse.mcm.createTableVariable({
+                id = "sourceMod",
+                table = config.display,
+            }),
+        })
     end
     do
         local dev = page:createCategory({

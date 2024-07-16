@@ -119,6 +119,8 @@ this.defaultConfig = {
     },
     display = {
         instruction = true,
+        objectId = false,
+        sourceMod = false,
         bokeh = true,
         leftPart = true,
         recalculateBounds = true,
