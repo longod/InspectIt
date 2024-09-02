@@ -23,36 +23,14 @@ function this.new()
     return instance
 end
 
---- @param keyCode integer|nil
---- @return string|nil letter
-local function GetLetter(keyCode)
-    local letter = table.find(tes3.scanCode, keyCode)
-    local returnString = tes3.scanCodeToNumber[keyCode] or letter
-    if returnString then
-        return string.upper(returnString)
-    end
-end
-
 --- @param keyCombo mwseKeyCombo
 --- @return string result
 local function GetComboString(keyCombo)
-    local keyCode = keyCombo.keyCode
-    local comboText = GetLetter(keyCode)
+    local comboText = mwse.mcm.getKeyComboName(keyCombo)
     if not comboText then
         comboText = string.format("{%s}", mwse.mcm.i18n("unknown key"))
     end
-    local hasAlt = (keyCombo.isAltDown and keyCode ~= tes3.scanCode.lAlt
-        and keyCode ~= tes3.scanCode.rAlt)
-    local hasShift = (keyCombo.isShiftDown and keyCode ~= tes3.scanCode.lShift
-        and keyCode ~= tes3.scanCode.rShift)
-    local hasCtrl = (keyCombo.isControlDown and keyCode ~= tes3.scanCode.lCtrl
-        and keyCode ~= tes3.scanCode.rCtrl)
-    local prefixes = {}
-    if hasShift then table.insert(prefixes, "Shift") end
-    if hasAlt then table.insert(prefixes, "Alt") end
-    if hasCtrl then table.insert(prefixes, "Ctrl") end
-    table.insert(prefixes, comboText)
-    return table.concat(prefixes, " + ")
+    return comboText
 end
 
 ---@param e enterFrameEventData

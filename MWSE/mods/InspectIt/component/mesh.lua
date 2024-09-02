@@ -174,12 +174,12 @@ function this.CalculateBounds(model)
                         vertices[i] = tes3vector3.new(0, 0, 0)
                     end
                     local skin = node.skinInstance.data
-                    local bindPose = tes3transform:new(skin.rotation, skin.translation, skin.scale)
+                    local bindPose = skin.transform -- tes3transform:new(skin.rotation, skin.translation, skin.scale)
                     local root = node.skinInstance.root.worldTransform
                     local skeleton = node.worldTransform:copy() * bindPose:copy() * root:copy():invert()
                     for boneIndex, boneData in ipairs(skin.boneData) do
                         local bone = node.skinInstance.bones[boneIndex]
-                        local boneSpace = tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
+                        local boneSpace = boneData.transform:copy() -- tes3transform:new(boneData.rotation, boneData.translation, boneData.scale) -- why self required?
                         -- I guess morrowind's skinning animation transform without HW skinning.
                         -- node local space -> bone sopace -> world animation space (no bind pose has been applied yet) ->
                         -- skeleton root (parent of the root bone) space -> bind pose space -> node world space
