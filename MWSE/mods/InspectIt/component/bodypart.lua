@@ -65,7 +65,7 @@ function this.BuildBodyPart(bodypart, root)
     end
     -- NOTE: If the root doesn't niNode (like niTriShape), it seems to create.
     -- NOTE: Worst of all, "a\A_Daedric_Skins.nif"'s bone naming convention is ridiculous and non-standard. It even has a niNode with Tri prefix name. That will be removed on loading.
-    logger:trace("%s", mesh.Dump(model))
+    -- logger:trace("%s", mesh.Dump(model))
 
     -- case-senstive?
     local bip01 = model:getObjectByName("Bip01") --[[@as niNode]]

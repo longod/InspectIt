@@ -4,7 +4,7 @@ description = "Inspect a variety of objects."
 homepage = "https://www.nexusmods.com/morrowind/mods/54636"
 repository = "https://github.com/longod/InspectIt"
 authors = ["longod"]
-version = "1.7"
+version = "1.8"
 
 [dependencies]
 assets = [
@@ -13,7 +13,7 @@ assets = [
 ]
 
 [dependencies.mwse]
-buildnumber = 4099
+buildnumber = 4312
 
 [dependencies.mge-xe]
 version = ">=0.15.0"

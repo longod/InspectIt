@@ -32,9 +32,8 @@ end
 local function FindAnotherLook(object)
     if object.objectType == tes3.objectType.armor or object.objectType == tes3.objectType.clothing then
         -- Body Parts
-        -- FIXME Sometimes it crashes at skinInstance reference or delayed release or something. So, until the cause of it is found, experimental
         ---@cast object tes3armor|tes3clothing
-        if config.development.experimental and tes3.player and tes3.player.object and object.parts then
+        if tes3.player and tes3.player.object and object.parts then
             local female = tes3.player.object.female -- depends on player
             local parts = object.parts
             local bodyParts = {} ---@type BodyPart[]
