@@ -26,7 +26,6 @@ This mod allow you to inspect a variety of objects.
   - If those are sheathed weapons by that mod, you can switch the display to it.
 
 ## Known Issues and Future Work
-- Another look for armor and clothing is unstable (experimental)
 - To inspect the player yourself, you have to be TPV (experimental).
 - For some objects, the initial orientation is not appropriate.
 - It does not open and read books and scrolls that include a script. The reason for this is to avoid accidentally opening them, for some of them involve a quest to see if they have been opened or not.
